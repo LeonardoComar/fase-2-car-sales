@@ -20,6 +20,7 @@ from src.application.use_cases.vehicles import (
     GetCarUseCase,
     SearchCarsUseCase,
     UpdateCarUseCase,
+    UpdateCarStatusUseCase,
     DeleteCarUseCase,
 )
 from src.adapters.rest.presenters.car_presenter import CarPresenter
@@ -42,6 +43,7 @@ class CarController:
         create_use_case: CreateCarUseCase,
         get_use_case: GetCarUseCase,
         update_use_case: UpdateCarUseCase,
+        update_status_use_case: UpdateCarStatusUseCase,
         delete_use_case: DeleteCarUseCase,
         search_use_case: SearchCarsUseCase,
         car_presenter: CarPresenter
@@ -49,6 +51,7 @@ class CarController:
         self._create_use_case = create_use_case
         self._get_use_case = get_use_case
         self._update_use_case = update_use_case
+        self._update_status_use_case = update_status_use_case
         self._delete_use_case = delete_use_case
         self._search_use_case = search_use_case
         self._presenter = car_presenter
@@ -258,3 +261,25 @@ class CarController:
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Erro interno do servidor"
             )
+
+    async def deactivate_car(self, car_id: int) -> JSONResponse:
+        """Desativa um carro."""
+        try:
+            car = await self._update_status_use_case.execute(car_id, "Inativo")
+            if not car:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Carro não encontrado")
+            response_data = self._presenter.present_car(car)
+            return JSONResponse(status_code=status.HTTP_200_OK, content={"message": "Carro desativado com sucesso", "data": response_data})
+        except Exception as e:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Erro interno do servidor")
+
+    async def activate_car(self, car_id: int) -> JSONResponse:
+        """Ativa um carro."""
+        try:
+            car = await self._update_status_use_case.execute(car_id, "Ativo")
+            if not car:
+                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Carro não encontrado")
+            response_data = self._presenter.present_car(car)
+            return JSONResponse(status_code=status.HTTP_200_OK, content={"message": "Carro ativado com sucesso", "data": response_data})
+        except Exception as e:
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Erro interno do servidor")

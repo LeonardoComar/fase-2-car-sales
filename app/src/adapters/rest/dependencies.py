@@ -19,6 +19,7 @@ from src.application.use_cases.vehicles import (
     CreateCarUseCase,
     GetCarUseCase,
     UpdateCarUseCase,
+    UpdateCarStatusUseCase,
     DeleteCarUseCase,
     SearchCarsUseCase,
     CreateMotorcycleUseCase,
@@ -129,6 +130,11 @@ def get_get_car_use_case() -> GetCarUseCase:
 def get_update_car_use_case() -> UpdateCarUseCase:
     """Factory para UpdateCarUseCase - versão com banco de dados."""
     return UpdateCarUseCase(get_car_gateway())
+
+
+def get_update_car_status_use_case() -> UpdateCarStatusUseCase:
+    """Factory para UpdateCarStatusUseCase - versão com banco de dados."""
+    return UpdateCarStatusUseCase(get_car_gateway())
 
 
 def get_delete_car_use_case() -> DeleteCarUseCase:
@@ -561,6 +567,7 @@ def get_car_controller() -> CarController:
         create_use_case=get_create_car_use_case(),
         get_use_case=get_get_car_use_case(),
         update_use_case=get_update_car_use_case(),
+        update_status_use_case=get_update_car_status_use_case(),
         delete_use_case=get_delete_car_use_case(),
         search_use_case=get_search_cars_use_case(),
         car_presenter=get_car_presenter()

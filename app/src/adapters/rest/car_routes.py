@@ -142,3 +142,31 @@ async def delete_car(
 ) -> JSONResponse:
     """Remove um carro do sistema."""
     return await controller.delete_car(car_id)
+
+
+@car_router.patch(
+    "/{car_id}/deactivate",
+    status_code=status.HTTP_200_OK,
+    summary="Desativar carro",
+    description="Desativa um carro (muda status para Inativo)"
+)
+async def deactivate_car(
+    car_id: int,
+    controller: CarController = Depends(get_car_controller)
+) -> JSONResponse:
+    """Desativa um carro."""
+    return await controller.deactivate_car(car_id)
+
+
+@car_router.patch(
+    "/{car_id}/activate",
+    status_code=status.HTTP_200_OK,
+    summary="Ativar carro",
+    description="Ativa um carro (muda status para Ativo)"
+)
+async def activate_car(
+    car_id: int,
+    controller: CarController = Depends(get_car_controller)
+) -> JSONResponse:
+    """Ativa um carro."""
+    return await controller.activate_car(car_id)
