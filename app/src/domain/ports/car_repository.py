@@ -58,7 +58,6 @@ class CarRepository(ABC):
     @abstractmethod
     async def find_by_criteria(
         self,
-        brand: Optional[str] = None,
         model: Optional[str] = None,
         year_min: Optional[int] = None,
         year_max: Optional[int] = None,
@@ -113,7 +112,6 @@ class CarRepository(ABC):
     @abstractmethod
     async def count_by_criteria(
         self,
-        brand: Optional[str] = None,
         model: Optional[str] = None,
         year_min: Optional[int] = None,
         year_max: Optional[int] = None,
@@ -149,6 +147,7 @@ class CarRepository(ABC):
         min_price: float = None,
         max_price: float = None,
         status: str = None,
+        order_by_price: str = None,
         skip: int = 0,
         limit: int = 100
     ) -> List[Car]:
@@ -165,6 +164,7 @@ class CarRepository(ABC):
             min_price: Preço mínimo
             max_price: Preço máximo
             status: Status do veículo
+            order_by_price: Ordenação por preço (asc/desc)
             skip: Número de registros para pular
             limit: Limite de registros
             

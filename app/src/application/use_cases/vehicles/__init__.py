@@ -7,6 +7,7 @@ from .get_motorcycle_use_case import GetMotorcycleUseCase
 from .update_car_use_case import UpdateCarUseCase
 from .update_car_status_use_case import UpdateCarStatusUseCase
 from .update_motorcycle_use_case import UpdateMotorcycleUseCase
+from .update_motorcycle_status_use_case import UpdateMotorcycleStatusUseCase
 from .delete_car_use_case import DeleteCarUseCase
 from .delete_motorcycle_use_case import DeleteMotorcycleUseCase
 from .search_cars_use_case import SearchCarsUseCase
@@ -20,6 +21,7 @@ __all__ = [
     "UpdateCarUseCase",
     "UpdateCarStatusUseCase",
     "UpdateMotorcycleUseCase",
+    "UpdateMotorcycleStatusUseCase",
     "DeleteCarUseCase",
     "DeleteMotorcycleUseCase",
     "SearchCarsUseCase",

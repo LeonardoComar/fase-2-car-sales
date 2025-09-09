@@ -155,6 +155,8 @@ class CarRepository(ABC):
         city: Optional[str] = None,
         min_price: Optional[float] = None,
         max_price: Optional[float] = None,
+        status: Optional[str] = None,
+        order_by_price: Optional[str] = None,
         skip: int = 0,
         limit: int = 100
     ) -> List[Car]:
@@ -170,6 +172,8 @@ class CarRepository(ABC):
             city: Cidade (opcional)
             min_price: Preço mínimo (opcional)
             max_price: Preço máximo (opcional)
+            status: Status do veículo (opcional)
+            order_by_price: Ordenação por preço (asc/desc)
             skip: Número de registros para pular
             limit: Número máximo de registros para retornar
             

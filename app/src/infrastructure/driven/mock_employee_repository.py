@@ -1,495 +1,362 @@
-from typing import List, Optional, Dict
-from uuid import UUID, uuid4
-from decimal import Decimal
-from datetime import datetime, date
-import re
+"""
+Implementação Mock do EmployeeRepository - Infrastructure Layer
+
+Simula operações de persistência para funcionários em memória.
+Útil para testes e desenvolvimento inicial.
+
+Aplicando princípios SOLID:
+- SRP: Responsável apenas pela persistência mock de funcionários
+- OCP: Extensível para novas operações sem modificar existentes
+- LSP: Pode substituir qualquer implementação do repositório
+- ISP: Implementa interface específica do repositório
+- DIP: Implementa abstração definida no domínio
+"""
+
+from typing import List, Optional, Dict, Any
+from datetime import datetime
+import asyncio
 
 from src.domain.entities.employee import Employee
+from src.domain.entities.address import Address
 from src.domain.ports.employee_repository import EmployeeRepository
 
 
 class MockEmployeeRepository(EmployeeRepository):
     """
-    Implementação mock do repositório de funcionários para desenvolvimento e testes.
+    Implementação mock do repositório de funcionários.
     
-    Aplicando o princípio Dependency Inversion Principle (DIP) - 
-    implementa a interface abstrata definida no domínio.
-    
-    Aplicando o princípio Single Responsibility Principle (SRP) - 
-    responsável apenas pela simulação de persistência de funcionários.
+    Armazena dados em memória com simulação de operações assíncronas.
+    Mantém integridade referencial e regras de negócio.
     """
     
     def __init__(self):
-        # Armazenamento em memória para simulação
-        self._employees: Dict[UUID, Employee] = {}
-        self._employee_id_counter = 1
+        """Inicializa o repositório mock com dados em memória."""
+        self._employees: Dict[int, Employee] = {}
+        self._addresses: Dict[int, Address] = {}
+        self._next_employee_id = 1
+        self._next_address_id = 1
         
         # Dados iniciais para demonstração
-        self._seed_initial_data()
+        self._initialize_mock_data()
     
-    def _seed_initial_data(self):
-        """Adiciona dados iniciais para demonstração."""
-        # Gerente Geral
-        manager = Employee(
-            id=uuid4(),
-            name="Carlos Silva",
-            email="carlos.silva@carsales.com",
-            phone="+55 11 99999-1001",
-            cpf="123.456.789-10",
-            birth_date=date(1980, 5, 15),
-            position="Gerente Geral",
-            department="Administração",
-            salary=Decimal("12000.00"),
-            hire_date=date(2020, 1, 15),
-            manager_id=None,
-            employee_id="EMP001",
-            address="Rua das Flores, 123",
+    def _initialize_mock_data(self):
+        """Inicializa dados mock para demonstração."""
+        # Endereços mock
+        address1 = Address(
+            id=1,
+            street="Rua das Empresas, 123",
             city="São Paulo",
             state="SP",
             zip_code="01234-567",
-            emergency_contact_name="Maria Silva",
-            emergency_contact_phone="+55 11 99999-2001",
-            status="active",
-            notes="Gerente responsável pela operação geral da concessionária"
+            country="Brasil",
+            created_at=datetime.now(),
+            updated_at=datetime.now()
         )
-        self._employees[manager.id] = manager
+        self._addresses[1] = address1
         
-        # Gerente de Vendas
-        sales_manager = Employee(
-            id=uuid4(),
-            name="Ana Souza",
-            email="ana.souza@carsales.com",
-            phone="+55 11 99999-1002",
-            cpf="234.567.890-21",
-            birth_date=date(1985, 8, 22),
-            position="Gerente de Vendas",
-            department="Vendas",
-            salary=Decimal("8500.00"),
-            hire_date=date(2021, 3, 10),
-            manager_id=manager.id,
-            employee_id="EMP002",
-            address="Av. Paulista, 456",
-            city="São Paulo",
-            state="SP",
-            zip_code="01310-100",
-            emergency_contact_name="João Souza",
-            emergency_contact_phone="+55 11 99999-2002",
-            status="active",
-            notes="Gerente da equipe de vendas"
+        # Funcionários mock
+        employee1 = Employee(
+            id=1,
+            name="João Silva",
+            email="joao.silva@empresa.com",
+            phone="(11) 99999-9999",
+            cpf="123.456.789-00",
+            status="Ativo",
+            address_id=1,
+            created_at=datetime.now(),
+            updated_at=datetime.now()
         )
-        self._employees[sales_manager.id] = sales_manager
+        self._employees[1] = employee1
         
-        # Vendedor
-        salesperson = Employee(
-            id=uuid4(),
-            name="Pedro Santos",
-            email="pedro.santos@carsales.com",
-            phone="+55 11 99999-1003",
-            cpf="345.678.901-32",
-            birth_date=date(1990, 12, 3),
-            position="Vendedor",
-            department="Vendas",
-            salary=Decimal("4500.00"),
-            hire_date=date(2022, 6, 1),
-            manager_id=sales_manager.id,
-            employee_id="EMP003",
-            address="Rua Augusta, 789",
-            city="São Paulo",
-            state="SP",
-            zip_code="01305-000",
-            emergency_contact_name="Lucia Santos",
-            emergency_contact_phone="+55 11 99999-2003",
-            status="active",
-            notes="Vendedor especializado em carros populares"
+        employee2 = Employee(
+            id=2,
+            name="Maria Santos",
+            email="maria.santos@empresa.com",
+            phone="(11) 88888-8888",
+            cpf="987.654.321-00",
+            status="Ativo",
+            address_id=None,
+            created_at=datetime.now(),
+            updated_at=datetime.now()
         )
-        self._employees[salesperson.id] = salesperson
+        self._employees[2] = employee2
         
-        # Incrementar contador
-        self._employee_id_counter = 4
+        self._next_employee_id = 3
+        self._next_address_id = 2
     
-    async def save(self, employee: Employee) -> Employee:
+    async def create(self, employee: Employee, address: Optional[Address] = None) -> Employee:
         """
-        Salva um funcionário.
+        Cria um novo funcionário no repositório mock.
         
         Args:
-            employee: Funcionário a ser salvo
+            employee: Dados do funcionário a ser criado
+            address: Dados do endereço (opcional)
             
         Returns:
-            Employee: Funcionário salvo com dados atualizados
+            Employee: O funcionário criado com ID gerado
         """
-        # Se não tem ID, gerar um novo
-        if employee.id is None:
-            employee.id = uuid4()
+        # Simular latência de rede
+        await asyncio.sleep(0.1)
         
-        # Se não tem employee_id, gerar um novo
-        if not employee.employee_id:
-            employee.employee_id = f"EMP{self._employee_id_counter:03d}"
-            self._employee_id_counter += 1
+        # Verificar se email já existe
+        existing_email = await self.find_by_email(employee.email)
+        if existing_email:
+            raise ValueError(f"Email '{employee.email}' já está em uso")
         
-        # Atualizar timestamp
-        employee.updated_at = datetime.utcnow()
+        # Verificar se CPF já existe
+        existing_cpf = await self.find_by_cpf(employee.cpf)
+        if existing_cpf:
+            raise ValueError(f"CPF '{employee.cpf}' já está em uso")
         
-        # Armazenar
-        self._employees[employee.id] = employee
+        # Criar endereço se fornecido
+        address_id = None
+        if address:
+            address.id = self._next_address_id
+            address.created_at = datetime.now()
+            address.updated_at = datetime.now()
+            self._addresses[self._next_address_id] = address
+            address_id = self._next_address_id
+            self._next_address_id += 1
+        
+        # Criar funcionário
+        employee.id = self._next_employee_id
+        employee.address_id = address_id
+        employee.created_at = datetime.now()
+        employee.updated_at = datetime.now()
+        
+        self._employees[self._next_employee_id] = employee
+        self._next_employee_id += 1
         
         return employee
     
-    async def find_by_id(self, employee_id: UUID) -> Optional[Employee]:
+    async def find_by_id(self, employee_id: int) -> Optional[Employee]:
         """
-        Busca funcionário por ID.
+        Busca um funcionário pelo ID.
         
         Args:
             employee_id: ID do funcionário
             
         Returns:
-            Optional[Employee]: Funcionário encontrado ou None
+            Optional[Employee]: O funcionário encontrado ou None
         """
-        return self._employees.get(employee_id)
-    
-    async def find_by_cpf(self, cpf: str) -> Optional[Employee]:
-        """
-        Busca funcionário por CPF.
+        # Simular latência de rede
+        await asyncio.sleep(0.05)
         
-        Args:
-            cpf: CPF do funcionário
-            
-        Returns:
-            Optional[Employee]: Funcionário encontrado ou None
-        """
-        for employee in self._employees.values():
-            if employee.cpf == cpf:
-                return employee
-        return None
+        return self._employees.get(employee_id)
     
     async def find_by_email(self, email: str) -> Optional[Employee]:
         """
-        Busca funcionário por email.
+        Busca um funcionário pelo email.
         
         Args:
             email: Email do funcionário
             
         Returns:
-            Optional[Employee]: Funcionário encontrado ou None
+            Optional[Employee]: O funcionário encontrado ou None
         """
+        # Simular latência de rede
+        await asyncio.sleep(0.05)
+        
+        email_lower = email.lower()
         for employee in self._employees.values():
-            if employee.email.lower() == email.lower():
+            if employee.email.lower() == email_lower:
                 return employee
         return None
     
-    async def find_by_employee_id(self, employee_id: str) -> Optional[Employee]:
+    async def find_by_cpf(self, cpf: str) -> Optional[Employee]:
         """
-        Busca funcionário por ID interno da empresa.
+        Busca um funcionário pelo CPF.
         
         Args:
-            employee_id: ID interno do funcionário
+            cpf: CPF do funcionário
             
         Returns:
-            Optional[Employee]: Funcionário encontrado ou None
+            Optional[Employee]: O funcionário encontrado ou None
         """
+        # Simular latência de rede
+        await asyncio.sleep(0.05)
+        
         for employee in self._employees.values():
-            if employee.employee_id == employee_id:
+            if employee.cpf == cpf:
                 return employee
         return None
     
-    async def find_by_criteria(self, **kwargs) -> List[Employee]:
+    async def update(self, employee_id: int, employee: Employee, address: Optional[Address] = None) -> Optional[Employee]:
         """
-        Busca funcionários por múltiplos critérios.
+        Atualiza um funcionário existente.
         
+        Args:
+            employee_id: ID do funcionário
+            employee: Dados atualizados do funcionário
+            address: Dados atualizados do endereço (opcional)
+            
+        Returns:
+            Optional[Employee]: O funcionário atualizado ou None se não encontrado
+        """
+        # Simular latência de rede
+        await asyncio.sleep(0.1)
+        
+        if employee_id not in self._employees:
+            return None
+        
+        existing_employee = self._employees[employee_id]
+        
+        # Verificar se email já existe (se está sendo alterado)
+        if employee.email != existing_employee.email:
+            existing_email = await self.find_by_email(employee.email)
+            if existing_email and existing_email.id != employee_id:
+                raise ValueError(f"Email '{employee.email}' já está em uso")
+        
+        # Verificar se CPF já existe (se está sendo alterado)
+        if employee.cpf != existing_employee.cpf:
+            existing_cpf = await self.find_by_cpf(employee.cpf)
+            if existing_cpf and existing_cpf.id != employee_id:
+                raise ValueError(f"CPF '{employee.cpf}' já está em uso")
+        
+        # Atualizar endereço se fornecido
+        address_id = existing_employee.address_id
+        if address:
+            if address_id:
+                # Atualizar endereço existente
+                address.id = address_id
+                address.updated_at = datetime.now()
+                if address.created_at is None:
+                    address.created_at = self._addresses[address_id].created_at
+                self._addresses[address_id] = address
+            else:
+                # Criar novo endereço
+                address.id = self._next_address_id
+                address.created_at = datetime.now()
+                address.updated_at = datetime.now()
+                self._addresses[self._next_address_id] = address
+                address_id = self._next_address_id
+                self._next_address_id += 1
+        
+        # Atualizar funcionário
+        employee.id = employee_id
+        employee.address_id = address_id
+        employee.updated_at = datetime.now()
+        employee.created_at = existing_employee.created_at
+        
+        self._employees[employee_id] = employee
+        
+        return employee
+    
+    async def delete(self, employee_id: int) -> bool:
+        """
+        Remove um funcionário do repositório mock.
+        
+        Args:
+            employee_id: ID do funcionário
+            
+        Returns:
+            bool: True se removido com sucesso, False caso contrário
+        """
+        # Simular latência de rede
+        await asyncio.sleep(0.1)
+        
+        if employee_id in self._employees:
+            employee = self._employees[employee_id]
+            
+            # Remover endereço associado se existir
+            if employee.address_id and employee.address_id in self._addresses:
+                del self._addresses[employee.address_id]
+            
+            del self._employees[employee_id]
+            return True
+        
+        return False
+    
+    async def find_all(self, skip: int = 0, limit: int = 100) -> List[Employee]:
+        """
+        Busca todos os funcionários com paginação.
+        
+        Args:
+            skip: Número de registros para pular
+            limit: Número máximo de registros para retornar
+            
         Returns:
             List[Employee]: Lista de funcionários encontrados
         """
-        employees = list(self._employees.values())
+        # Simular latência de rede
+        await asyncio.sleep(0.05)
         
-        # Aplicar filtros
-        employees = self._apply_filters(employees, **kwargs)
+        all_employees = list(self._employees.values())
+        all_employees.sort(key=lambda e: e.id or 0)
         
-        # Aplicar ordenação
-        employees = self._apply_ordering(employees, kwargs.get('order_by'), kwargs.get('order_direction'))
-        
-        # Aplicar paginação
-        if 'offset' in kwargs and kwargs['offset'] is not None:
-            offset = kwargs['offset']
-            employees = employees[offset:]
-        
-        if 'limit' in kwargs and kwargs['limit'] is not None:
-            limit = kwargs['limit']
-            employees = employees[:limit]
-        
-        return employees
+        return all_employees[skip:skip + limit]
     
-    async def find_by_department(self, department: str) -> List[Employee]:
+    async def find_by_name(self, name: str, skip: int = 0, limit: int = 100) -> List[Employee]:
         """
-        Busca funcionários por departamento.
+        Busca funcionários por nome (busca parcial).
         
         Args:
-            department: Nome do departamento
+            name: Nome ou parte do nome para buscar
+            skip: Número de registros para pular
+            limit: Número máximo de registros para retornar
             
         Returns:
-            List[Employee]: Lista de funcionários do departamento
+            List[Employee]: Lista de funcionários encontrados
         """
-        result = []
-        for employee in self._employees.values():
-            if department.lower() in employee.department.lower():
-                result.append(employee)
-        return result
+        # Simular latência de rede
+        await asyncio.sleep(0.05)
+        
+        name_lower = name.lower()
+        matching_employees = [
+            employee for employee in self._employees.values()
+            if name_lower in employee.name.lower()
+        ]
+        
+        matching_employees.sort(key=lambda e: e.id or 0)
+        
+        return matching_employees[skip:skip + limit]
     
-    async def find_by_manager(self, manager_id: UUID) -> List[Employee]:
+    async def find_by_status(self, status: str, skip: int = 0, limit: int = 100) -> List[Employee]:
         """
-        Busca funcionários por gerente.
+        Busca funcionários por status.
         
         Args:
-            manager_id: ID do gerente
+            status: Status dos funcionários (Ativo/Inativo)
+            skip: Número de registros para pular
+            limit: Número máximo de registros para retornar
             
         Returns:
-            List[Employee]: Lista de funcionários subordinados
+            List[Employee]: Lista de funcionários encontrados
         """
-        result = []
-        for employee in self._employees.values():
-            if employee.manager_id == manager_id:
-                result.append(employee)
-        return result
+        # Simular latência de rede
+        await asyncio.sleep(0.05)
+        
+        matching_employees = [
+            employee for employee in self._employees.values()
+            if employee.status == status
+        ]
+        
+        matching_employees.sort(key=lambda e: e.id or 0)
+        
+        return matching_employees[skip:skip + limit]
     
-    async def find_managers(self) -> List[Employee]:
+    def get_address_by_id(self, address_id: int) -> Optional[Address]:
         """
-        Busca todos os gerentes.
-        
-        Returns:
-            List[Employee]: Lista de gerentes
-        """
-        result = []
-        manager_keywords = ['gerente', 'supervisor', 'coordenador', 'diretor', 'manager']
-        
-        for employee in self._employees.values():
-            position_lower = employee.position.lower()
-            if any(keyword in position_lower for keyword in manager_keywords):
-                result.append(employee)
-        
-        return result
-    
-    async def delete(self, employee_id: UUID) -> None:
-        """
-        Exclui um funcionário.
+        Busca um endereço pelo ID (método auxiliar).
         
         Args:
-            employee_id: ID do funcionário a ser excluído
-        """
-        if employee_id in self._employees:
-            del self._employees[employee_id]
-    
-    async def exists_by_cpf(self, cpf: str, exclude_id: Optional[UUID] = None) -> bool:
-        """
-        Verifica se existe funcionário com o CPF.
-        
-        Args:
-            cpf: CPF a ser verificado
-            exclude_id: ID a ser excluído da verificação (para atualizações)
+            address_id: ID do endereço
             
         Returns:
-            bool: True se existir funcionário com o CPF
+            Optional[Address]: O endereço encontrado ou None
         """
-        for employee in self._employees.values():
-            if employee.cpf == cpf and employee.id != exclude_id:
-                return True
-        return False
+        return self._addresses.get(address_id)
     
-    async def exists_by_email(self, email: str, exclude_id: Optional[UUID] = None) -> bool:
+    def get_all_data(self) -> Dict[str, Any]:
         """
-        Verifica se existe funcionário com o email.
+        Retorna todos os dados armazenados (útil para debug).
         
-        Args:
-            email: Email a ser verificado
-            exclude_id: ID a ser excluído da verificação (para atualizações)
-            
         Returns:
-            bool: True se existir funcionário com o email
+            Dict: Dicionário com funcionários e endereços
         """
-        for employee in self._employees.values():
-            if employee.email.lower() == email.lower() and employee.id != exclude_id:
-                return True
-        return False
-    
-    async def exists_by_employee_id(self, employee_id: str, exclude_id: Optional[UUID] = None) -> bool:
-        """
-        Verifica se existe funcionário com o ID interno.
-        
-        Args:
-            employee_id: ID interno a ser verificado
-            exclude_id: ID a ser excluído da verificação (para atualizações)
-            
-        Returns:
-            bool: True se existir funcionário com o ID interno
-        """
-        for employee in self._employees.values():
-            if employee.employee_id == employee_id and employee.id != exclude_id:
-                return True
-        return False
-    
-    async def has_subordinates(self, employee_id: UUID) -> bool:
-        """
-        Verifica se o funcionário tem subordinados.
-        
-        Args:
-            employee_id: ID do funcionário
-            
-        Returns:
-            bool: True se tiver subordinados
-        """
-        for employee in self._employees.values():
-            if employee.manager_id == employee_id:
-                return True
-        return False
-    
-    async def has_associated_sales(self, employee_id: UUID) -> bool:
-        """
-        Verifica se o funcionário tem vendas associadas.
-        
-        Args:
-            employee_id: ID do funcionário
-            
-        Returns:
-            bool: True se tiver vendas associadas
-        """
-        # Simulação - sempre retorna False por enquanto
-        return False
-    
-    async def has_pending_transactions(self, employee_id: UUID) -> bool:
-        """
-        Verifica se o funcionário tem transações pendentes.
-        
-        Args:
-            employee_id: ID do funcionário
-            
-        Returns:
-            bool: True se tiver transações pendentes
-        """
-        # Simulação - sempre retorna False por enquanto
-        return False
-    
-    async def count_by_department(self, department: str) -> int:
-        """
-        Conta funcionários por departamento.
-        
-        Args:
-            department: Nome do departamento
-            
-        Returns:
-            int: Número de funcionários no departamento
-        """
-        count = 0
-        for employee in self._employees.values():
-            if department.lower() in employee.department.lower():
-                count += 1
-        return count
-    
-    async def get_department_payroll(self, department: str) -> Decimal:
-        """
-        Calcula folha de pagamento por departamento.
-        
-        Args:
-            department: Nome do departamento
-            
-        Returns:
-            Decimal: Total da folha do departamento
-        """
-        total = Decimal('0')
-        for employee in self._employees.values():
-            if (department.lower() in employee.department.lower() and 
-                employee.status == "active"):
-                total += employee.salary
-        return total
-    
-    def _apply_filters(self, employees: List[Employee], **kwargs) -> List[Employee]:
-        """Aplica filtros à lista de funcionários."""
-        result = employees.copy()
-        
-        # Filtros de texto
-        if 'name' in kwargs and kwargs['name']:
-            name_filter = kwargs['name'].lower()
-            result = [e for e in result if name_filter in e.name.lower()]
-        
-        if 'email' in kwargs and kwargs['email']:
-            email_filter = kwargs['email'].lower()
-            result = [e for e in result if email_filter in e.email.lower()]
-        
-        if 'phone' in kwargs and kwargs['phone']:
-            result = [e for e in result if e.phone == kwargs['phone']]
-        
-        if 'cpf' in kwargs and kwargs['cpf']:
-            result = [e for e in result if e.cpf == kwargs['cpf']]
-        
-        if 'position' in kwargs and kwargs['position']:
-            position_filter = kwargs['position'].lower()
-            result = [e for e in result if position_filter in e.position.lower()]
-        
-        if 'department' in kwargs and kwargs['department']:
-            dept_filter = kwargs['department'].lower()
-            result = [e for e in result if dept_filter in e.department.lower()]
-        
-        if 'employee_id' in kwargs and kwargs['employee_id']:
-            result = [e for e in result if e.employee_id == kwargs['employee_id']]
-        
-        # Filtros de localização
-        if 'city' in kwargs and kwargs['city']:
-            city_filter = kwargs['city'].lower()
-            result = [e for e in result if city_filter in e.city.lower()]
-        
-        if 'state' in kwargs and kwargs['state']:
-            result = [e for e in result if e.state == kwargs['state']]
-        
-        if 'zip_code' in kwargs and kwargs['zip_code']:
-            result = [e for e in result if e.zip_code == kwargs['zip_code']]
-        
-        # Filtros hierárquicos
-        if 'manager_id' in kwargs and kwargs['manager_id']:
-            result = [e for e in result if e.manager_id == kwargs['manager_id']]
-        
-        # Filtros de status
-        if 'status' in kwargs and kwargs['status']:
-            result = [e for e in result if e.status == kwargs['status']]
-        
-        if 'active_only' in kwargs and kwargs['active_only']:
-            result = [e for e in result if e.status == "active"]
-        
-        # Filtros de salário
-        if 'min_salary' in kwargs and kwargs['min_salary'] is not None:
-            min_sal = kwargs['min_salary']
-            result = [e for e in result if e.salary >= min_sal]
-        
-        if 'max_salary' in kwargs and kwargs['max_salary'] is not None:
-            max_sal = kwargs['max_salary']
-            result = [e for e in result if e.salary <= max_sal]
-        
-        # Filtros especiais
-        if 'managers_only' in kwargs and kwargs['managers_only']:
-            manager_keywords = ['gerente', 'supervisor', 'coordenador', 'diretor', 'manager']
-            result = [e for e in result if any(keyword in e.position.lower() for keyword in manager_keywords)]
-        
-        return result
-    
-    def _apply_ordering(self, employees: List[Employee], order_by: Optional[str], order_direction: Optional[str]) -> List[Employee]:
-        """Aplica ordenação à lista de funcionários."""
-        if not order_by:
-            order_by = 'name'
-        
-        if not order_direction:
-            order_direction = 'asc'
-        
-        reverse = order_direction.lower() == 'desc'
-        
-        # Mapeamento de campos para ordenação
-        if order_by == 'name':
-            employees.sort(key=lambda e: e.name, reverse=reverse)
-        elif order_by == 'email':
-            employees.sort(key=lambda e: e.email, reverse=reverse)
-        elif order_by == 'position':
-            employees.sort(key=lambda e: e.position, reverse=reverse)
-        elif order_by == 'department':
-            employees.sort(key=lambda e: e.department, reverse=reverse)
-        elif order_by == 'salary':
-            employees.sort(key=lambda e: e.salary, reverse=reverse)
-        elif order_by == 'hire_date':
-            employees.sort(key=lambda e: e.hire_date, reverse=reverse)
-        elif order_by == 'created_at':
-            employees.sort(key=lambda e: e.created_at, reverse=reverse)
-        
-        return employees
+        return {
+            "employees": {k: vars(v) for k, v in self._employees.items()},
+            "addresses": {k: vars(v) for k, v in self._addresses.items()},
+            "next_employee_id": self._next_employee_id,
+            "next_address_id": self._next_address_id
+        }

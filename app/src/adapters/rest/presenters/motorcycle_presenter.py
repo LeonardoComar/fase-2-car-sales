@@ -80,17 +80,17 @@ class MotorcyclePresenter:
         return f"{mileage:,} km".replace(",", ".")
     
     @staticmethod
-    def format_cylinder_capacity(cylinder_capacity: int) -> str:
+    def format_engine_displacement(engine_displacement: int) -> str:
         """
         Formata a cilindrada para apresentação.
         
         Args:
-            cylinder_capacity: Cilindrada da motocicleta
+            engine_displacement: Cilindrada da motocicleta
             
         Returns:
             str: Cilindrada formatada
         """
-        return f"{cylinder_capacity}cc"
+        return f"{engine_displacement}cc"
     
     @staticmethod
     def get_motorcycle_type_display(motorcycle_type: str) -> str:
@@ -192,12 +192,16 @@ class MotorcyclePresenter:
         Returns:
             str: Especificações formatadas
         """
-        specs = [f"{motorcycle.cylinder_capacity}cc"]
+        specs = []
         
-        if motorcycle.seat_height:
-            specs.append(f"Altura do assento: {motorcycle.seat_height}cm")
+        if motorcycle.engine_displacement:
+            specs.append(f"{motorcycle.engine_displacement}cc")
+            
+        if motorcycle.gears:
+            specs.append(f"{motorcycle.gears} marchas")
         
-        if motorcycle.dry_weight:
+        if motorcycle.engine_type:
+            specs.append(motorcycle.engine_type)
             specs.append(f"Peso seco: {motorcycle.dry_weight}kg")
         
         if motorcycle.fuel_capacity:

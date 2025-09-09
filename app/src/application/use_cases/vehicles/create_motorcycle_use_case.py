@@ -1,8 +1,11 @@
 from typing import Optional
+import logging
 from src.application.dtos.motorcycle_dto import MotorcycleCreateDto, MotorcycleResponseDto
 from src.domain.entities.motorcycle import Motorcycle
 from src.domain.ports.motorcycle_repository import MotorcycleRepository
 from src.domain.exceptions import ValidationError, BusinessRuleError
+
+logger = logging.getLogger(__name__)
 
 
 class CreateMotorcycleUseCase:
@@ -34,42 +37,63 @@ class CreateMotorcycleUseCase:
             BusinessRuleError: Se as regras de negócio não forem atendidas
         """
         try:
-            # Criar a entidade de domínio
-            motorcycle = Motorcycle.create_complete_motorcycle(
-                # Dados do MotorVehicle
-                brand=motorcycle_data.brand,
+            logger.info(f"🔍 [CREATE_MOTORCYCLE_USE_CASE] Iniciando criação de motocicleta: {motorcycle_data.model}")
+            
+            # Para simplificar, vou criar o MotorVehicle e a Motorcycle separadamente
+            from decimal import Decimal
+            from src.domain.entities.motor_vehicle import MotorVehicle
+            
+            logger.info("🔍 [CREATE_MOTORCYCLE_USE_CASE] Criando MotorVehicle...")
+            # Criar o MotorVehicle diretamente
+            motor_vehicle = MotorVehicle.create_motor_vehicle(
                 model=motorcycle_data.model,
                 year=motorcycle_data.year,
-                price=motorcycle_data.price,
                 mileage=motorcycle_data.mileage,
                 fuel_type=motorcycle_data.fuel_type,
-                engine_power=motorcycle_data.engine_power,
                 color=motorcycle_data.color,
-                description=motorcycle_data.description,
-                # Dados específicos da Motorcycle
-                motorcycle_type=motorcycle_data.motorcycle_type,
-                cylinder_capacity=motorcycle_data.cylinder_capacity,
-                has_abs=motorcycle_data.has_abs,
-                has_traction_control=motorcycle_data.has_traction_control,
-                seat_height=motorcycle_data.seat_height,
-                dry_weight=motorcycle_data.dry_weight,
-                fuel_capacity=motorcycle_data.fuel_capacity
+                city=motorcycle_data.city or "",
+                price=Decimal(str(motorcycle_data.price)),
+                additional_description=motorcycle_data.additional_description
             )
             
+            logger.info("🔍 [CREATE_MOTORCYCLE_USE_CASE] Criando Motorcycle...")
+            # Criar a Motorcycle
+            motorcycle = Motorcycle(
+                motor_vehicle=motor_vehicle,
+                starter=motorcycle_data.starter,
+                fuel_system=motorcycle_data.fuel_system,
+                engine_displacement=motorcycle_data.engine_displacement,
+                cooling=motorcycle_data.cooling,
+                style=motorcycle_data.style,
+                engine_type=motorcycle_data.engine_type,
+                gears=motorcycle_data.gears,
+                front_rear_brake=motorcycle_data.front_rear_brake
+            )
+            
+            logger.info("🔍 [CREATE_MOTORCYCLE_USE_CASE] Validando regras de negócio...")
             # Validações adicionais de negócio
             await self._validate_business_rules(motorcycle)
             
+            logger.info("🔍 [CREATE_MOTORCYCLE_USE_CASE] Salvando no repositório...")
             # Salvar no repositório
             saved_motorcycle = await self.motorcycle_repository.save(motorcycle)
             
+            logger.info("🔍 [CREATE_MOTORCYCLE_USE_CASE] Convertendo para DTO de resposta...")
             # Converter para DTO de resposta
-            return self._to_response_dto(saved_motorcycle)
+            response_dto = self._to_response_dto(saved_motorcycle)
             
-        except ValidationError:
+            logger.info(f"✅ [CREATE_MOTORCYCLE_USE_CASE] Motocicleta criada com sucesso. ID: {saved_motorcycle.id}")
+            return response_dto
+            
+        except ValidationError as e:
+            logger.error(f"❌ [CREATE_MOTORCYCLE_USE_CASE] Erro de validação: {str(e)}")
             raise
-        except BusinessRuleError:
+        except BusinessRuleError as e:
+            logger.error(f"❌ [CREATE_MOTORCYCLE_USE_CASE] Erro de regra de negócio: {str(e)}")
             raise
         except Exception as e:
+            logger.error(f"❌ [CREATE_MOTORCYCLE_USE_CASE] Erro interno: {str(e)}")
+            logger.exception("Stack trace completo do erro:")
             raise ValidationError(f"Erro interno durante criação da motocicleta: {str(e)}")
     
     async def _validate_business_rules(self, motorcycle: Motorcycle) -> None:
@@ -84,11 +108,11 @@ class CreateMotorcycleUseCase:
         """
         # Regra: Verificar se já existe uma motocicleta muito similar
         similar_motorcycles = await self.motorcycle_repository.find_by_criteria(
-            brand=motorcycle.motor_vehicle.brand,
             model=motorcycle.motor_vehicle.model,
-            year=motorcycle.motor_vehicle.year,
-            cylinder_capacity_min=motorcycle.cylinder_capacity - 50,
-            cylinder_capacity_max=motorcycle.cylinder_capacity + 50,
+            year_min=int(motorcycle.motor_vehicle.year) if motorcycle.motor_vehicle.year.isdigit() else None,
+            year_max=int(motorcycle.motor_vehicle.year) if motorcycle.motor_vehicle.year.isdigit() else None,
+            engine_displacement_min=motorcycle.engine_displacement - 50 if motorcycle.engine_displacement else None,
+            engine_displacement_max=motorcycle.engine_displacement + 50 if motorcycle.engine_displacement else None,
             limit=1
         )
         
@@ -96,39 +120,8 @@ class CreateMotorcycleUseCase:
             # Apenas um aviso, não bloqueia a criação
             pass
         
-        # Regra: Motocicletas novas (0 km) devem ter preço mínimo baseado na cilindrada
-        if motorcycle.motor_vehicle.mileage == 0:
-            min_price = self._calculate_min_price_for_new_motorcycle(motorcycle.cylinder_capacity)
-            if motorcycle.motor_vehicle.price < min_price:
-                raise BusinessRuleError(
-                    f"Preço muito baixo para motocicleta nova de {motorcycle.cylinder_capacity}cc. "
-                    f"Preço mínimo sugerido: R$ {min_price:,.2f}",
-                    "new_motorcycle_min_price"
-                )
-        
         # Regra: Verificar coerência entre tipo e características
         self._validate_type_consistency(motorcycle)
-    
-    def _calculate_min_price_for_new_motorcycle(self, cylinder_capacity: int) -> float:
-        """
-        Calcula preço mínimo baseado na cilindrada.
-        
-        Args:
-            cylinder_capacity: Cilindrada da motocicleta
-            
-        Returns:
-            float: Preço mínimo sugerido
-        """
-        if cylinder_capacity <= 150:
-            return 8000.0
-        elif cylinder_capacity <= 250:
-            return 15000.0
-        elif cylinder_capacity <= 600:
-            return 25000.0
-        elif cylinder_capacity <= 1000:
-            return 40000.0
-        else:
-            return 60000.0
     
     def _validate_type_consistency(self, motorcycle: Motorcycle) -> None:
         """
@@ -140,19 +133,12 @@ class CreateMotorcycleUseCase:
         Raises:
             BusinessRuleError: Se houver inconsistência
         """
-        # Scooters devem ter baixa cilindrada
-        if motorcycle.motorcycle_type == "Scooter" and motorcycle.cylinder_capacity > 250:
+        # Validações simplificadas usando os campos que existem na tabela
+        if motorcycle.style == "Scooter" and motorcycle.engine_displacement and motorcycle.engine_displacement > 250:
             raise BusinessRuleError(
                 "Scooters devem ter cilindrada máxima de 250cc",
-                "scooter_max_cylinder_capacity"
+                "scooter_max_displacement"
             )
-        
-        # Motocicletas Sport de alta cilindrada devem ter sistemas de segurança
-        if (motorcycle.motorcycle_type == "Sport" and 
-            motorcycle.cylinder_capacity > 600 and 
-            not motorcycle.has_abs):
-            # Apenas um aviso para motocicletas sport
-            pass
     
     def _to_response_dto(self, motorcycle: Motorcycle) -> MotorcycleResponseDto:
         """
@@ -164,32 +150,32 @@ class CreateMotorcycleUseCase:
         Returns:
             MotorcycleResponseDto: DTO de resposta
         """
+        from datetime import datetime
+        
         return MotorcycleResponseDto(
             id=motorcycle.id,
             # Dados do MotorVehicle
-            brand=motorcycle.motor_vehicle.brand,
             model=motorcycle.motor_vehicle.model,
             year=motorcycle.motor_vehicle.year,
-            price=motorcycle.motor_vehicle.price,
+            price=float(motorcycle.motor_vehicle.price),
             mileage=motorcycle.motor_vehicle.mileage,
             fuel_type=motorcycle.motor_vehicle.fuel_type,
-            engine_power=motorcycle.motor_vehicle.engine_power,
             color=motorcycle.motor_vehicle.color,
+            city=motorcycle.motor_vehicle.city,
+            additional_description=motorcycle.motor_vehicle.additional_description,
             status=motorcycle.motor_vehicle.status,
-            description=motorcycle.motor_vehicle.description,
             # Dados específicos da Motorcycle
-            motorcycle_type=motorcycle.motorcycle_type,
-            cylinder_capacity=motorcycle.cylinder_capacity,
-            has_abs=motorcycle.has_abs,
-            has_traction_control=motorcycle.has_traction_control,
-            seat_height=motorcycle.seat_height,
-            dry_weight=motorcycle.dry_weight,
-            fuel_capacity=motorcycle.fuel_capacity,
+            starter=motorcycle.starter,
+            fuel_system=motorcycle.fuel_system,
+            engine_displacement=motorcycle.engine_displacement,
+            cooling=motorcycle.cooling,
+            style=motorcycle.style,
+            engine_type=motorcycle.engine_type,
+            gears=motorcycle.gears,
+            front_rear_brake=motorcycle.front_rear_brake,
             # Dados calculados
-            is_high_performance=motorcycle.is_high_performance(),
-            power_to_weight_ratio=motorcycle.get_power_to_weight_ratio(),
-            display_name=motorcycle.get_display_name(),
-            # Auditoria
-            created_at=motorcycle.created_at,
-            updated_at=motorcycle.updated_at
+            display_name=f"{motorcycle.motor_vehicle.model} ({motorcycle.motor_vehicle.year})",
+            # Auditoria - usando dados do motor_vehicle para created_at e motorcycle para updated_at
+            created_at=motorcycle.motor_vehicle.created_at or datetime.now(),
+            updated_at=motorcycle.updated_at or motorcycle.motor_vehicle.updated_at or datetime.now()
         )

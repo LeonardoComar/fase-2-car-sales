@@ -6,6 +6,8 @@ Aplicando Clean Architecture e SOLID Principles
 
 from typing import List, Optional, Dict, Any
 from uuid import UUID
+import jwt
+import logging
 from fastapi import HTTPException, status
 from fastapi.responses import JSONResponse
 
@@ -19,8 +21,12 @@ from src.application.use_cases.users import (
     GetUserUseCase,
     AuthenticateUserUseCase,
 )
+from src.application.use_cases.get_current_user_use_case import GetCurrentUserUseCase
 from src.adapters.rest.presenters.user_presenter import UserPresenter
 from src.domain.exceptions import ValidationError, NotFoundError, BusinessRuleError
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 
 class UserController:
@@ -39,11 +45,13 @@ class UserController:
         create_use_case: CreateUserUseCase,
         get_use_case: GetUserUseCase,
         authenticate_use_case: AuthenticateUserUseCase,
+        get_current_user_use_case: GetCurrentUserUseCase,
         user_presenter: UserPresenter
     ):
         self._create_use_case = create_use_case
         self._get_use_case = get_use_case
         self._authenticate_use_case = authenticate_use_case
+        self._get_current_user_use_case = get_current_user_use_case
         self._presenter = user_presenter
 
     async def create_user(self, user_data: UserCreateDto) -> JSONResponse:
@@ -188,6 +196,91 @@ class UserController:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Erro interno do servidor"
+            )
+
+    async def get_current_user(self, token: str) -> JSONResponse:
+        """
+        Obtém informações do usuário atual baseado no token JWT.
+        
+        Args:
+            token: Token JWT do usuário autenticado
+            
+        Returns:
+            JSONResponse com dados do usuário atual
+            
+        Raises:
+            HTTPException: Em caso de token inválido ou usuário não encontrado
+        """
+        try:
+            logger.info("🔍 [GET_CURRENT_USER] Iniciando obtenção do usuário atual")
+            logger.info(f"🔑 [GET_CURRENT_USER] Token recebido: '{token}'")
+            logger.info(f"📏 [GET_CURRENT_USER] Tipo do token: {type(token)}")
+            logger.info(f"📐 [GET_CURRENT_USER] Tamanho do token: {len(token) if token else 'None'}")
+            
+            if not token:
+                logger.error("❌ [GET_CURRENT_USER] Token não fornecido")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Token não fornecido",
+                    headers={"WWW-Authenticate": "Bearer"}
+                )
+            
+            if not isinstance(token, str):
+                logger.error(f"❌ [GET_CURRENT_USER] Token não é string: {type(token)}")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Token deve ser string, recebido: {type(token)}"
+                )
+            
+            # Verificar se token não está vazio ou só com espaços
+            if not token.strip():
+                logger.error("❌ [GET_CURRENT_USER] Token está vazio")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Token está vazio",
+                    headers={"WWW-Authenticate": "Bearer"}
+                )
+            
+            logger.info("📋 [GET_CURRENT_USER] Executando use case...")
+            user = await self._get_current_user_use_case.execute(token)
+            logger.info(f"✅ [GET_CURRENT_USER] Usuário encontrado: ID={user.id}, Email={user.email}")
+            
+            logger.info("🎨 [GET_CURRENT_USER] Preparando resposta com presenter...")
+            response_data = self._presenter.present_user(user)
+            logger.info("✅ [GET_CURRENT_USER] Resposta preparada com sucesso")
+            
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={
+                    "message": "Usuário atual obtido com sucesso",
+                    "data": response_data
+                }
+            )
+            
+        except jwt.InvalidTokenError as e:
+            logger.error(f"❌ [GET_CURRENT_USER] Token JWT inválido: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail=f"Token inválido: {str(e)}",
+                headers={"WWW-Authenticate": "Bearer"}
+            )
+        except NotFoundError as e:
+            logger.error(f"❌ [GET_CURRENT_USER] Usuário não encontrado: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Usuário não encontrado: {str(e)}"
+            )
+        except ValueError as e:
+            logger.error(f"❌ [GET_CURRENT_USER] Erro de validação: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Dados inválidos: {str(e)}"
+            )
+        except Exception as e:
+            logger.error(f"💥 [GET_CURRENT_USER] Erro inesperado: {type(e).__name__}: {str(e)}", exc_info=True)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Erro interno: {type(e).__name__}: {str(e)}"
             )
 
     async def search_users(self, search_dto: dict) -> JSONResponse:

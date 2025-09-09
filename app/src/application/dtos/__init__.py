@@ -1,19 +1,15 @@
 # Application DTOs
 from .employee_dto import (
-    EmployeeCreateDto,
-    EmployeeUpdateDto,
+    CreateEmployeeDto,
+    UpdateEmployeeDto,
     EmployeeResponseDto,
-    EmployeeSearchDto,
-    EmployeeStatusUpdateDto,
-    EmployeePromotionDto
+    EmployeeListDto
 )
 
 __all__ = [
     # Employee DTOs
-    "EmployeeCreateDto",
-    "EmployeeUpdateDto",
+    "CreateEmployeeDto",
+    "UpdateEmployeeDto",
     "EmployeeResponseDto",
-    "EmployeeSearchDto",
-    "EmployeeStatusUpdateDto",
-    "EmployeePromotionDto",
+    "EmployeeListDto",
 ]

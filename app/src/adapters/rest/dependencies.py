@@ -7,12 +7,18 @@ módulos de alto nível não dependem de módulos de baixo nível.
 Versão simplificada enquanto a infraestrutura está sendo implementada.
 """
 
+import logging
+
+# Setup logging
+logger = logging.getLogger(__name__)
+
 # Use Cases - User
 from src.application.use_cases.users import (
     CreateUserUseCase,
     GetUserUseCase,
     AuthenticateUserUseCase,
 )
+from src.application.use_cases.get_current_user_use_case import GetCurrentUserUseCase
 
 # Use Cases - Vehicles
 from src.application.use_cases.vehicles import (
@@ -25,6 +31,7 @@ from src.application.use_cases.vehicles import (
     CreateMotorcycleUseCase,
     GetMotorcycleUseCase,
     UpdateMotorcycleUseCase,
+    UpdateMotorcycleStatusUseCase,
     DeleteMotorcycleUseCase,
     SearchMotorcyclesUseCase,
 )
@@ -53,15 +60,12 @@ from src.application.use_cases.sales import (
 )
 
 # Use Cases - Employees
-from src.application.use_cases.employees import (
-    CreateEmployeeUseCase,
-    GetEmployeeByIdUseCase,
-    UpdateEmployeeUseCase,
-    DeleteEmployeeUseCase,
-    ListEmployeesUseCase,
-    PromoteEmployeeUseCase,
-    UpdateEmployeeStatusUseCase,
-)
+from src.application.use_cases.employees.create_employee_use_case import CreateEmployeeUseCase
+from src.application.use_cases.employees.get_employee_use_case import GetEmployeeUseCase
+from src.application.use_cases.employees.list_employees_use_case import ListEmployeesUseCase
+from src.application.use_cases.employees.update_employee_use_case import UpdateEmployeeUseCase
+from src.application.use_cases.employees.delete_employee_use_case import DeleteEmployeeUseCase
+from src.application.use_cases.employees.update_employee_status_use_case import UpdateEmployeeStatusUseCase
 
 # Use Cases - Clients
 from src.application.use_cases.clients import (
@@ -87,7 +91,7 @@ from src.adapters.rest.controllers.vehicle_image_controller import VehicleImageC
 
 # Presenters
 from src.adapters.rest.presenters.sale_presenter import SalePresenter
-from src.adapters.rest.presenters.employee_presenter import EmployeePresenter
+# from src.adapters.rest.presenters.employee_presenter import EmployeePresenter  # TODO: Implementar quando necessário
 from src.adapters.rest.presenters.message_presenter import MessagePresenter
 from src.adapters.rest.presenters.client_presenter import ClientPresenter
 from src.adapters.rest.presenters.car_presenter import CarPresenter
@@ -102,6 +106,7 @@ from src.infrastructure.driven.mock_employee_repository import MockEmployeeRepos
 from src.infrastructure.driven.mock_sale_repository import MockSaleRepository
 from src.infrastructure.driven.mock_message_repository import MockMessageRepository
 from src.infrastructure.driven.mock_user_repository import MockUserRepository
+from src.infrastructure.driven.mock_blacklisted_token_repository import MockBlacklistedTokenRepository
 
 # Real Gateways (for when database is configured)
 from src.adapters.persistence.gateways import (
@@ -109,7 +114,7 @@ from src.adapters.persistence.gateways import (
     CarGateway,
     ClientGateway,
     MotorcycleGateway,
-    EmployeeGateway,
+    # EmployeeGateway,  # TODO: Implementar quando necessário
     SaleGateway,
     MessageGateway
 )
@@ -147,31 +152,45 @@ def get_search_cars_use_case() -> SearchCarsUseCase:
     return SearchCarsUseCase(get_car_gateway())
 
 
-# Dependency Functions - Use Cases - Motorcycle (mock para desenvolvimento)
+# Dependency Functions - Use Cases - Motorcycle (usando gateway real)
 
 def get_create_motorcycle_use_case() -> CreateMotorcycleUseCase:
-    """Factory para CreateMotorcycleUseCase - versão mock."""
-    return CreateMotorcycleUseCase(get_mock_motorcycle_repository())
+    """Factory para CreateMotorcycleUseCase com gateway real."""
+    return CreateMotorcycleUseCase(get_motorcycle_gateway())
 
 
 def get_get_motorcycle_use_case() -> GetMotorcycleUseCase:
-    """Factory para GetMotorcycleUseCase - versão mock."""
-    return GetMotorcycleUseCase(get_mock_motorcycle_repository())
+    """Factory para GetMotorcycleUseCase com gateway real."""
+    return GetMotorcycleUseCase(get_motorcycle_gateway())
 
 
 def get_update_motorcycle_use_case() -> UpdateMotorcycleUseCase:
-    """Factory para UpdateMotorcycleUseCase - versão mock."""
-    return UpdateMotorcycleUseCase(get_mock_motorcycle_repository())
+    """Factory para UpdateMotorcycleUseCase com gateway real."""
+    return UpdateMotorcycleUseCase(get_motorcycle_gateway())
+
+
+def get_update_motorcycle_status_use_case() -> UpdateMotorcycleStatusUseCase:
+    """Factory para UpdateMotorcycleStatusUseCase com gateway real."""
+    return UpdateMotorcycleStatusUseCase(get_motorcycle_gateway())
 
 
 def get_delete_motorcycle_use_case() -> DeleteMotorcycleUseCase:
-    """Factory para DeleteMotorcycleUseCase - versão mock."""
-    return DeleteMotorcycleUseCase(get_mock_motorcycle_repository())
+    """Factory para DeleteMotorcycleUseCase com gateway real."""
+    return DeleteMotorcycleUseCase(get_motorcycle_gateway())
 
 
 def get_search_motorcycles_use_case() -> SearchMotorcyclesUseCase:
-    """Factory para SearchMotorcyclesUseCase - versão mock."""
-    return SearchMotorcyclesUseCase(get_mock_motorcycle_repository())
+    """Factory para SearchMotorcyclesUseCase com gateway real."""
+    try:
+        logger.info("🔍 [DEPENDENCIES] Criando SearchMotorcyclesUseCase...")
+        gateway = get_motorcycle_gateway()
+        logger.info("🔍 [DEPENDENCIES] Gateway obtido com sucesso")
+        use_case = SearchMotorcyclesUseCase(gateway)
+        logger.info("🔍 [DEPENDENCIES] SearchMotorcyclesUseCase criado com sucesso")
+        return use_case
+    except Exception as e:
+        logger.error(f"❌ [DEPENDENCIES] Erro ao criar SearchMotorcyclesUseCase: {str(e)}", exc_info=True)
+        raise e
 
 
 # Dependency Functions - Use Cases - User (mock para desenvolvimento)
@@ -189,6 +208,15 @@ def get_get_user_use_case() -> GetUserUseCase:
 def get_authenticate_user_use_case() -> AuthenticateUserUseCase:
     """Factory para AuthenticateUserUseCase - versão mock."""
     return AuthenticateUserUseCase(get_mock_user_repository())
+
+
+def get_get_current_user_use_case() -> GetCurrentUserUseCase:
+    """Factory para GetCurrentUserUseCase - versão mock."""
+    return GetCurrentUserUseCase(
+        user_repository=get_mock_user_repository(),
+        blacklisted_token_repository=get_mock_blacklisted_token_repository(),
+        secret_key="your-secret-key-here-change-in-production"  # Em produção, deve vir de variável de ambiente
+    )
 
 
 # Dependency Functions - Use Cases - Client (com mock repository)
@@ -314,6 +342,7 @@ _mock_user_repository = None
 _mock_employee_repository = None
 _mock_sale_repository = None
 _mock_message_repository = None
+_mock_blacklisted_token_repository = None
 
 
 def get_mock_car_repository() -> MockCarRepository:
@@ -372,6 +401,14 @@ def get_mock_message_repository() -> MockMessageRepository:
     return _mock_message_repository
 
 
+def get_mock_blacklisted_token_repository() -> MockBlacklistedTokenRepository:
+    """Factory para mock BlacklistedToken repository - versão singleton."""
+    global _mock_blacklisted_token_repository
+    if _mock_blacklisted_token_repository is None:
+        _mock_blacklisted_token_repository = MockBlacklistedTokenRepository()
+    return _mock_blacklisted_token_repository
+
+
 # =============================================================================
 # REAL DATABASE GATEWAYS - Uncomment and configure when database is ready
 # =============================================================================
@@ -393,11 +430,19 @@ def get_client_gateway() -> ClientGateway:
 
 def get_motorcycle_gateway() -> MotorcycleGateway:
     """Factory for MotorcycleGateway with database connection."""
-    return MotorcycleGateway()
+    try:
+        logger.info("🔍 [DEPENDENCIES] Criando MotorcycleGateway...")
+        gateway = MotorcycleGateway()
+        logger.info("🔍 [DEPENDENCIES] MotorcycleGateway criado com sucesso")
+        return gateway
+    except Exception as e:
+        logger.error(f"❌ [DEPENDENCIES] Erro ao criar MotorcycleGateway: {str(e)}", exc_info=True)
+        raise e
 
-def get_employee_gateway() -> EmployeeGateway:
-    """Factory for EmployeeGateway with database connection."""
-    return EmployeeGateway()
+# TODO: Implementar quando necessário
+# def get_employee_gateway() -> EmployeeGateway:
+#     """Factory for EmployeeGateway with database connection."""
+#     return EmployeeGateway()
 
 def get_user_gateway() -> UserGateway:
     """Factory for UserGateway with database connection."""
@@ -433,9 +478,9 @@ def get_create_employee_use_case() -> CreateEmployeeUseCase:
     return CreateEmployeeUseCase(get_mock_employee_repository())
 
 
-def get_get_employee_by_id_use_case() -> GetEmployeeByIdUseCase:
-    """Factory para GetEmployeeByIdUseCase - versão com mock."""
-    return GetEmployeeByIdUseCase(get_mock_employee_repository())
+def get_get_employee_use_case() -> GetEmployeeUseCase:
+    """Factory para GetEmployeeUseCase - versão com mock."""
+    return GetEmployeeUseCase(get_mock_employee_repository())
 
 
 def get_update_employee_use_case() -> UpdateEmployeeUseCase:
@@ -453,11 +498,6 @@ def get_list_employees_use_case() -> ListEmployeesUseCase:
     return ListEmployeesUseCase(get_mock_employee_repository())
 
 
-def get_promote_employee_use_case() -> PromoteEmployeeUseCase:
-    """Factory para PromoteEmployeeUseCase - versão com mock."""
-    return PromoteEmployeeUseCase(get_mock_employee_repository())
-
-
 def get_update_employee_status_use_case() -> UpdateEmployeeStatusUseCase:
     """Factory para UpdateEmployeeStatusUseCase - versão com mock."""
     return UpdateEmployeeStatusUseCase(get_mock_employee_repository())
@@ -470,9 +510,10 @@ def get_sale_presenter() -> SalePresenter:
     return SalePresenter()
 
 
-def get_employee_presenter() -> EmployeePresenter:
-    """Factory para EmployeePresenter."""
-    return EmployeePresenter()
+# TODO: Implementar quando necessário
+# def get_employee_presenter() -> EmployeePresenter:
+#     """Factory para EmployeePresenter."""
+#     return EmployeePresenter()
 
 
 def get_message_presenter() -> MessagePresenter:
@@ -520,13 +561,11 @@ def get_employee_controller() -> EmployeeController:
     """Factory para EmployeeController."""
     return EmployeeController(
         create_employee_use_case=get_create_employee_use_case(),
-        get_employee_by_id_use_case=get_get_employee_by_id_use_case(),
+        get_employee_use_case=get_get_employee_use_case(),
+        list_employees_use_case=get_list_employees_use_case(),
         update_employee_use_case=get_update_employee_use_case(),
         delete_employee_use_case=get_delete_employee_use_case(),
-        list_employees_use_case=get_list_employees_use_case(),
-        promote_employee_use_case=get_promote_employee_use_case(),
-        update_employee_status_use_case=get_update_employee_status_use_case(),
-        employee_presenter=get_employee_presenter()
+        update_employee_status_use_case=get_update_employee_status_use_case()
     )
 
 
@@ -578,14 +617,22 @@ def get_car_controller() -> CarController:
 
 def get_motorcycle_controller() -> MotorcycleController:
     """Factory para MotorcycleController."""
-    return MotorcycleController(
-        create_use_case=get_create_motorcycle_use_case(),
-        get_use_case=get_get_motorcycle_use_case(),
-        update_use_case=get_update_motorcycle_use_case(),
-        delete_use_case=get_delete_motorcycle_use_case(),
-        search_use_case=get_search_motorcycles_use_case(),
-        motorcycle_presenter=get_motorcycle_presenter()
-    )
+    try:
+        logger.info("🔍 [DEPENDENCIES] Criando MotorcycleController...")
+        controller = MotorcycleController(
+            create_use_case=get_create_motorcycle_use_case(),
+            get_use_case=get_get_motorcycle_use_case(),
+            update_use_case=get_update_motorcycle_use_case(),
+            update_status_use_case=get_update_motorcycle_status_use_case(),
+            delete_use_case=get_delete_motorcycle_use_case(),
+            search_use_case=get_search_motorcycles_use_case(),
+            motorcycle_presenter=get_motorcycle_presenter()
+        )
+        logger.info("🔍 [DEPENDENCIES] MotorcycleController criado com sucesso")
+        return controller
+    except Exception as e:
+        logger.error(f"❌ [DEPENDENCIES] Erro ao criar MotorcycleController: {str(e)}", exc_info=True)
+        raise e
 
 
 # ====== USER DEPENDENCIES ======
@@ -596,6 +643,7 @@ def get_user_controller() -> UserController:
         create_use_case=get_create_user_use_case(),
         get_use_case=get_get_user_use_case(),
         authenticate_use_case=get_authenticate_user_use_case(),
+        get_current_user_use_case=get_get_current_user_use_case(),
         user_presenter=get_user_presenter()
     )
 

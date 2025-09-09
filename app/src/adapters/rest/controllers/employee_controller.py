@@ -1,386 +1,356 @@
-from typing import List
-from uuid import UUID
+"""
+Controller de Funcionários - Adapter Layer
 
+Responsável por coordenar as operações HTTP relacionadas a funcionários.
+Faz a ponte entre a camada de apresentação (routers) e a camada de aplicação (use cases).
+
+Aplicando princípios SOLID:
+- SRP: Responsável apenas pela coordenação de operações de funcionários
+- OCP: Extensível para novas operações sem modificar existentes
+- LSP: Pode ser substituído por outras implementações
+- ISP: Interface específica para operações de funcionários
+- DIP: Depende de abstrações (use cases) não de implementações
+"""
+
+from typing import Optional, List
 from fastapi import HTTPException, status
+from fastapi.responses import JSONResponse
 
-from src.application.dtos.employee_dto import (
-    EmployeeCreateDto, EmployeeUpdateDto, EmployeeResponseDto, 
-    EmployeeSearchDto, EmployeeStatusUpdateDto, EmployeePromotionDto
-)
-from src.application.use_cases import (
-    CreateEmployeeUseCase, GetEmployeeByIdUseCase, UpdateEmployeeUseCase,
-    DeleteEmployeeUseCase, ListEmployeesUseCase, PromoteEmployeeUseCase,
-    UpdateEmployeeStatusUseCase
-)
-from src.adapters.rest.presenters.employee_presenter import EmployeePresenter
-from src.domain.exceptions import ValidationError, BusinessRuleError, NotFoundError, DuplicateError
+from src.application.use_cases.employees.create_employee_use_case import CreateEmployeeUseCase
+from src.application.use_cases.employees.get_employee_use_case import GetEmployeeUseCase
+from src.application.use_cases.employees.list_employees_use_case import ListEmployeesUseCase
+from src.application.use_cases.employees.update_employee_use_case import UpdateEmployeeUseCase
+from src.application.use_cases.employees.delete_employee_use_case import DeleteEmployeeUseCase
+from src.application.use_cases.employees.update_employee_status_use_case import UpdateEmployeeStatusUseCase
+from src.application.dtos.employee_dto import CreateEmployeeDto, UpdateEmployeeDto, EmployeeResponseDto, EmployeeListDto
 
 
 class EmployeeController:
     """
     Controller para operações de funcionários.
     
-    Aplicando o princípio Single Responsibility Principle (SRP) - 
-    responsável apenas por gerenciar requisições HTTP relacionadas a funcionários.
-    
-    Aplicando o princípio Dependency Inversion Principle (DIP) - 
-    depende das abstrações dos use cases, não das implementações.
+    Coordena a execução de use cases e formatação de respostas HTTP.
     """
     
-    def __init__(
-        self,
-        create_employee_use_case: CreateEmployeeUseCase,
-        get_employee_by_id_use_case: GetEmployeeByIdUseCase,
-        update_employee_use_case: UpdateEmployeeUseCase,
-        delete_employee_use_case: DeleteEmployeeUseCase,
-        list_employees_use_case: ListEmployeesUseCase,
-        promote_employee_use_case: PromoteEmployeeUseCase,
-        update_employee_status_use_case: UpdateEmployeeStatusUseCase,
-        employee_presenter: EmployeePresenter
-    ):
-        self.create_employee_use_case = create_employee_use_case
-        self.get_employee_by_id_use_case = get_employee_by_id_use_case
-        self.update_employee_use_case = update_employee_use_case
-        self.delete_employee_use_case = delete_employee_use_case
-        self.list_employees_use_case = list_employees_use_case
-        self.promote_employee_use_case = promote_employee_use_case
-        self.update_employee_status_use_case = update_employee_status_use_case
-        self.employee_presenter = employee_presenter
+    def __init__(self,
+                 create_employee_use_case: CreateEmployeeUseCase,
+                 get_employee_use_case: GetEmployeeUseCase,
+                 list_employees_use_case: ListEmployeesUseCase,
+                 update_employee_use_case: UpdateEmployeeUseCase,
+                 delete_employee_use_case: DeleteEmployeeUseCase,
+                 update_employee_status_use_case: UpdateEmployeeStatusUseCase):
+        """
+        Inicializa o controller com os use cases necessários.
+        
+        Args:
+            create_employee_use_case: Use case para criar funcionários
+            get_employee_use_case: Use case para buscar funcionários
+            list_employees_use_case: Use case para listar funcionários
+            update_employee_use_case: Use case para atualizar funcionários
+            delete_employee_use_case: Use case para excluir funcionários
+            update_employee_status_use_case: Use case para atualizar status
+        """
+        self._create_employee_use_case = create_employee_use_case
+        self._get_employee_use_case = get_employee_use_case
+        self._list_employees_use_case = list_employees_use_case
+        self._update_employee_use_case = update_employee_use_case
+        self._delete_employee_use_case = delete_employee_use_case
+        self._update_employee_status_use_case = update_employee_status_use_case
     
-    async def create_employee(self, employee_data: EmployeeCreateDto) -> dict:
+    async def create_employee(self, employee_data: CreateEmployeeDto) -> JSONResponse:
         """
         Cria um novo funcionário.
         
         Args:
-            employee_data: Dados do funcionário a ser criado
+            employee_data: Dados para criação do funcionário
             
         Returns:
-            dict: Funcionário criado formatado pelo presenter
+            JSONResponse: Resposta com dados do funcionário criado
             
         Raises:
             HTTPException: Se houver erro na criação
         """
         try:
-            employee_response = await self.create_employee_use_case.execute(employee_data)
-            return self.employee_presenter.present_employee(employee_response)
+            employee = await self._create_employee_use_case.execute(employee_data)
             
-        except ValidationError as e:
+            return JSONResponse(
+                status_code=status.HTTP_201_CREATED,
+                content={
+                    "message": "Funcionário criado com sucesso",
+                    "data": employee.dict()
+                }
+            )
+            
+        except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Dados inválidos: {str(e)}"
-            )
-        except BusinessRuleError as e:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Regra de negócio violada: {str(e)}"
-            )
-        except DuplicateError as e:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Conflito: {str(e)}"
+                detail=str(e)
             )
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Erro interno do servidor: {str(e)}"
+                detail=f"Erro interno: {str(e)}"
             )
     
-    async def get_employee_by_id(self, employee_id: UUID) -> dict:
+    async def get_employee(self, employee_id: int) -> JSONResponse:
         """
-        Busca funcionário por ID.
+        Busca um funcionário por ID.
         
         Args:
             employee_id: ID do funcionário
             
         Returns:
-            dict: Funcionário encontrado formatado pelo presenter
+            JSONResponse: Resposta com dados do funcionário
             
         Raises:
-            HTTPException: Se funcionário não for encontrado
+            HTTPException: Se funcionário não encontrado ou erro na busca
         """
         try:
-            employee_response = await self.get_employee_by_id_use_case.execute(employee_id)
-            return self.employee_presenter.present_employee(employee_response)
+            employee = await self._get_employee_use_case.execute(employee_id)
             
-        except NotFoundError as e:
+            if not employee:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Funcionário não encontrado"
+                )
+            
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={
+                    "message": "Funcionário encontrado com sucesso",
+                    "data": employee.dict()
+                }
+            )
+            
+        except HTTPException:
+            raise
+        except ValueError as e:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
+                status_code=status.HTTP_400_BAD_REQUEST,
                 detail=str(e)
             )
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Erro interno do servidor: {str(e)}"
+                detail=f"Erro interno: {str(e)}"
             )
     
-    async def update_employee(self, employee_id: UUID, employee_data: EmployeeUpdateDto) -> dict:
+    async def list_employees(self, skip: int = 0, limit: int = 100,
+                           name: Optional[str] = None, cpf: Optional[str] = None,
+                           employee_status: Optional[str] = None) -> JSONResponse:
         """
-        Atualiza um funcionário.
+        Lista funcionários com filtros opcionais.
         
         Args:
-            employee_id: ID do funcionário a ser atualizado
+            skip: Número de registros para pular
+            limit: Número máximo de registros para retornar
+            name: Nome ou parte do nome para filtrar (opcional)
+            cpf: CPF exato para buscar (opcional)
+            employee_status: Status para filtrar (opcional)
+            
+        Returns:
+            JSONResponse: Resposta com lista de funcionários
+            
+        Raises:
+            HTTPException: Se houver erro na listagem
+        """
+        try:
+            employees = await self._list_employees_use_case.execute(
+                skip=skip, limit=limit, name=name, cpf=cpf, status=employee_status
+            )
+            
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={
+                    "message": "Funcionários listados com sucesso",
+                    "data": {
+                        "employees": [emp.dict() for emp in employees],
+                        "total": len(employees),
+                        "skip": skip,
+                        "limit": limit
+                    }
+                }
+            )
+            
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e)
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Erro interno: {str(e)}"
+            )
+    
+    async def update_employee(self, employee_id: int, employee_data: UpdateEmployeeDto) -> JSONResponse:
+        """
+        Atualiza um funcionário existente.
+        
+        Args:
+            employee_id: ID do funcionário
             employee_data: Dados para atualização
             
         Returns:
-            dict: Funcionário atualizado formatado pelo presenter
+            JSONResponse: Resposta com dados do funcionário atualizado
             
         Raises:
-            HTTPException: Se houver erro na atualização
+            HTTPException: Se funcionário não encontrado ou erro na atualização
         """
         try:
-            employee_response = await self.update_employee_use_case.execute(employee_id, employee_data)
-            return self.employee_presenter.present_employee(employee_response)
+            employee = await self._update_employee_use_case.execute(employee_id, employee_data)
             
-        except NotFoundError as e:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=str(e)
+            if not employee:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Funcionário não encontrado"
+                )
+            
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={
+                    "message": "Funcionário atualizado com sucesso",
+                    "data": employee.dict()
+                }
             )
-        except ValidationError as e:
+            
+        except HTTPException:
+            raise
+        except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Dados inválidos: {str(e)}"
-            )
-        except BusinessRuleError as e:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Regra de negócio violada: {str(e)}"
-            )
-        except DuplicateError as e:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Conflito: {str(e)}"
+                detail=str(e)
             )
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Erro interno do servidor: {str(e)}"
+                detail=f"Erro interno: {str(e)}"
             )
     
-    async def delete_employee(self, employee_id: UUID) -> dict:
+    async def delete_employee(self, employee_id: int) -> JSONResponse:
         """
         Exclui um funcionário.
         
         Args:
-            employee_id: ID do funcionário a ser excluído
+            employee_id: ID do funcionário
             
         Returns:
-            dict: Mensagem de sucesso
+            JSONResponse: Resposta de confirmação
             
         Raises:
-            HTTPException: Se houver erro na exclusão
+            HTTPException: Se funcionário não encontrado ou erro na exclusão
         """
         try:
-            await self.delete_employee_use_case.execute(employee_id)
-            return self.employee_presenter.present_deletion_success("Funcionário")
+            success = await self._delete_employee_use_case.execute(employee_id)
             
-        except NotFoundError as e:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=str(e)
+            if not success:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Funcionário não encontrado"
+                )
+            
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={
+                    "message": "Funcionário excluído com sucesso"
+                }
             )
-        except BusinessRuleError as e:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Não é possível excluir: {str(e)}"
-            )
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Erro interno do servidor: {str(e)}"
-            )
-    
-    async def list_employees(self, search_criteria: EmployeeSearchDto) -> dict:
-        """
-        Lista funcionários com filtros.
-        
-        Args:
-            search_criteria: Critérios de busca
             
-        Returns:
-            dict: Lista de funcionários formatada pelo presenter
-            
-        Raises:
-            HTTPException: Se houver erro na busca
-        """
-        try:
-            employees_response = await self.list_employees_use_case.execute(search_criteria)
-            return self.employee_presenter.present_employee_list(employees_response)
-            
-        except ValidationError as e:
+        except HTTPException:
+            raise
+        except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Critérios de busca inválidos: {str(e)}"
-            )
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Erro interno do servidor: {str(e)}"
-            )
-    
-    async def promote_employee(self, employee_id: UUID, promotion_data: EmployeePromotionDto) -> dict:
-        """
-        Promove um funcionário.
-        
-        Args:
-            employee_id: ID do funcionário a ser promovido
-            promotion_data: Dados da promoção
-            
-        Returns:
-            dict: Funcionário promovido formatado pelo presenter
-            
-        Raises:
-            HTTPException: Se houver erro na promoção
-        """
-        try:
-            employee_response = await self.promote_employee_use_case.execute(employee_id, promotion_data)
-            return self.employee_presenter.present_promotion_success(employee_response)
-            
-        except NotFoundError as e:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
                 detail=str(e)
             )
-        except ValidationError as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Dados de promoção inválidos: {str(e)}"
-            )
-        except BusinessRuleError as e:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Promoção não permitida: {str(e)}"
-            )
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Erro interno do servidor: {str(e)}"
+                detail=f"Erro interno: {str(e)}"
             )
     
-    async def update_employee_status(self, employee_id: UUID, status_data: EmployeeStatusUpdateDto) -> dict:
+    async def activate_employee(self, employee_id: int) -> JSONResponse:
         """
-        Atualiza status de um funcionário.
+        Ativa um funcionário (define status como 'Ativo').
         
         Args:
             employee_id: ID do funcionário
-            status_data: Dados de atualização de status
             
         Returns:
-            dict: Funcionário com status atualizado formatado pelo presenter
+            JSONResponse: Resposta com dados do funcionário ativado
             
         Raises:
-            HTTPException: Se houver erro na atualização
+            HTTPException: Se funcionário não encontrado ou erro na ativação
         """
         try:
-            employee_response = await self.update_employee_status_use_case.execute(employee_id, status_data)
-            return self.employee_presenter.present_status_update_success(employee_response)
+            employee = await self._update_employee_status_use_case.execute(employee_id, "Ativo")
             
-        except NotFoundError as e:
+            if not employee:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Funcionário não encontrado"
+                )
+            
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={
+                    "message": "Funcionário ativado com sucesso",
+                    "data": employee.dict()
+                }
+            )
+            
+        except HTTPException:
+            raise
+        except ValueError as e:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
+                status_code=status.HTTP_400_BAD_REQUEST,
                 detail=str(e)
             )
-        except ValidationError as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Dados de status inválidos: {str(e)}"
-            )
-        except BusinessRuleError as e:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail=f"Mudança de status não permitida: {str(e)}"
-            )
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Erro interno do servidor: {str(e)}"
+                detail=f"Erro interno: {str(e)}"
             )
     
-    async def get_employee_by_cpf(self, cpf: str) -> dict:
+    async def deactivate_employee(self, employee_id: int) -> JSONResponse:
         """
-        Busca funcionário por CPF.
+        Desativa um funcionário (define status como 'Inativo').
         
         Args:
-            cpf: CPF do funcionário
+            employee_id: ID do funcionário
             
         Returns:
-            dict: Funcionário encontrado formatado pelo presenter
+            JSONResponse: Resposta com dados do funcionário desativado
             
         Raises:
-            HTTPException: Se funcionário não for encontrado
+            HTTPException: Se funcionário não encontrado ou erro na desativação
         """
         try:
-            # Buscar usando filtro
-            search_criteria = EmployeeSearchDto(cpf=cpf, limit=1)
-            employees_response = await self.list_employees_use_case.execute(search_criteria)
+            employee = await self._update_employee_status_use_case.execute(employee_id, "Inativo")
             
-            if not employees_response:
-                raise NotFoundError("Funcionário", f"CPF {cpf}")
+            if not employee:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Funcionário não encontrado"
+                )
             
-            return self.employee_presenter.present_employee(employees_response[0])
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content={
+                    "message": "Funcionário desativado com sucesso",
+                    "data": employee.dict()
+                }
+            )
             
-        except NotFoundError as e:
+        except HTTPException:
+            raise
+        except ValueError as e:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
+                status_code=status.HTTP_400_BAD_REQUEST,
                 detail=str(e)
             )
-        except ValidationError as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"CPF inválido: {str(e)}"
-            )
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Erro interno do servidor: {str(e)}"
-            )
-    
-    async def get_employees_by_department(self, department: str) -> dict:
-        """
-        Lista funcionários por departamento.
-        
-        Args:
-            department: Nome do departamento
-            
-        Returns:
-            dict: Lista de funcionários do departamento
-            
-        Raises:
-            HTTPException: Se houver erro na busca
-        """
-        try:
-            search_criteria = EmployeeSearchDto(department=department, active_only=True)
-            employees_response = await self.list_employees_use_case.execute(search_criteria)
-            return self.employee_presenter.present_department_employees(employees_response, department)
-            
-        except ValidationError as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Parâmetros inválidos: {str(e)}"
-            )
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Erro interno do servidor: {str(e)}"
-            )
-    
-    async def get_managers(self) -> dict:
-        """
-        Lista todos os gerentes.
-        
-        Returns:
-            dict: Lista de gerentes
-            
-        Raises:
-            HTTPException: Se houver erro na busca
-        """
-        try:
-            search_criteria = EmployeeSearchDto(managers_only=True, active_only=True)
-            managers_response = await self.list_employees_use_case.execute(search_criteria)
-            return self.employee_presenter.present_managers_list(managers_response)
-            
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Erro interno do servidor: {str(e)}"
+                detail=f"Erro interno: {str(e)}"
             )

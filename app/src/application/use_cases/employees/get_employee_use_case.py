@@ -1,30 +1,28 @@
 """
-Use Case para Criação de Funcionário - Application Layer
+Use Case para Obter Funcionário - Application Layer
 
-Responsável por coordenar a criação de funcionários aplicando regras de negócio.
+Responsável por buscar funcionários por ID aplicando regras de negócio.
 
 Aplicando princípios SOLID:
-- SRP: Responsável apenas pela criação de funcionários
+- SRP: Responsável apenas pela busca de funcionários
 - OCP: Extensível para novas validações sem modificar código existente
 - LSP: Pode ser substituído por outras implementações
-- ISP: Interface específica para criação
+- ISP: Interface específica para busca
 - DIP: Depende de abstrações (repositórios) não de implementações
 """
 
 from typing import Optional
 from src.domain.entities.employee import Employee
-from src.domain.entities.address import Address
 from src.domain.ports.employee_repository import EmployeeRepository
-from src.application.dtos.employee_dto import CreateEmployeeDto, EmployeeResponseDto
+from src.application.dtos.employee_dto import EmployeeResponseDto
 from src.application.dtos.address_dto import AddressResponseDto
 
 
-class CreateEmployeeUseCase:
+class GetEmployeeUseCase:
     """
-    Use Case para criação de funcionários.
+    Use Case para busca de funcionários por ID.
     
-    Coordena a validação de dados, aplicação de regras de negócio
-    e persistência de funcionários no sistema.
+    Coordena a busca e conversão de dados de funcionários.
     """
     
     def __init__(self, employee_repository: EmployeeRepository):
@@ -36,53 +34,44 @@ class CreateEmployeeUseCase:
         """
         self._employee_repository = employee_repository
     
-    async def execute(self, employee_data: CreateEmployeeDto) -> EmployeeResponseDto:
+    async def execute(self, employee_id: int) -> Optional[EmployeeResponseDto]:
         """
-        Executa a criação de um funcionário.
+        Executa a busca de um funcionário por ID.
         
         Args:
-            employee_data: Dados para criação do funcionário
+            employee_id: ID do funcionário a ser buscado
             
         Returns:
-            EmployeeResponseDto: Dados do funcionário criado
+            Optional[EmployeeResponseDto]: Dados do funcionário ou None se não encontrado
             
         Raises:
-            ValueError: Se dados inválidos forem fornecidos
-            Exception: Se houver erro na criação
+            ValueError: Se ID inválido for fornecido
+            Exception: Se houver erro na busca
         """
         try:
-            # Criar entidade de endereço se dados forem fornecidos
+            if employee_id <= 0:
+                raise ValueError("ID do funcionário deve ser maior que zero")
+            
+            # Buscar funcionário no repositório
+            employee = await self._employee_repository.find_by_id(employee_id)
+            
+            if not employee:
+                return None
+            
+            # Buscar endereço se funcionário tiver address_id
             address = None
-            if any([employee_data.street, employee_data.city, employee_data.state, 
-                   employee_data.zip_code, employee_data.country]):
-                address = Address(
-                    street=employee_data.street or "",
-                    city=employee_data.city or "",
-                    state=employee_data.state or "",
-                    zip_code=employee_data.zip_code or "",
-                    country=employee_data.country or "Brasil"
-                )
-            
-            # Criar entidade de funcionário
-            employee = Employee.create_employee(
-                name=employee_data.name,
-                email=employee_data.email,
-                cpf=employee_data.cpf,
-                phone=employee_data.phone
-            )
-            
-            # Persistir no repositório
-            created_employee = await self._employee_repository.create(employee, address)
+            if employee.address_id and hasattr(self._employee_repository, 'get_address_by_id'):
+                address = self._employee_repository.get_address_by_id(employee.address_id)
             
             # Converter para DTO de resposta
-            return self._convert_to_response_dto(created_employee, address)
+            return self._convert_to_response_dto(employee, address)
             
         except ValueError as e:
             raise e
         except Exception as e:
-            raise Exception(f"Erro ao criar funcionário: {str(e)}")
+            raise Exception(f"Erro ao buscar funcionário: {str(e)}")
     
-    def _convert_to_response_dto(self, employee: Employee, address: Optional[Address] = None) -> EmployeeResponseDto:
+    def _convert_to_response_dto(self, employee: Employee, address = None) -> EmployeeResponseDto:
         """
         Converte entidade Employee para DTO de resposta.
         

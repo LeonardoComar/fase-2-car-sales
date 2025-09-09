@@ -1,6 +1,6 @@
 from typing import Optional, List
 from datetime import datetime
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, ConfigDict
 
 
 class MotorcycleCreateDto(BaseModel):
@@ -12,24 +12,25 @@ class MotorcycleCreateDto(BaseModel):
     """
     
     # Dados do MotorVehicle
-    brand: str = Field(..., min_length=2, max_length=50, description="Marca da motocicleta")
     model: str = Field(..., min_length=1, max_length=100, description="Modelo da motocicleta")
-    year: int = Field(..., ge=1900, le=2030, description="Ano de fabricação")
+    year: str = Field(..., min_length=4, max_length=50, description="Ano de fabricação")
     price: float = Field(..., gt=0, description="Preço da motocicleta")
     mileage: int = Field(..., ge=0, description="Quilometragem")
     fuel_type: str = Field(..., description="Tipo de combustível")
-    engine_power: str = Field(..., min_length=1, max_length=20, description="Potência do motor")
-    color: str = Field(..., min_length=2, max_length=30, description="Cor da motocicleta")
-    description: Optional[str] = Field(None, max_length=1000, description="Descrição adicional")
+    color: str = Field(..., min_length=2, max_length=50, description="Cor da motocicleta")
+    city: Optional[str] = Field(None, max_length=100, description="Cidade")
+    additional_description: Optional[str] = Field(None, max_length=1000, description="Descrição adicional")
+    status: Optional[str] = Field("Ativo", max_length=50, description="Status do veículo")
     
     # Dados específicos da Motorcycle
-    motorcycle_type: str = Field(..., description="Tipo de motocicleta")
-    cylinder_capacity: int = Field(..., ge=50, le=2500, description="Cilindrada em cc")
-    has_abs: bool = Field(False, description="Possui ABS")
-    has_traction_control: bool = Field(False, description="Possui controle de tração")
-    seat_height: Optional[int] = Field(None, ge=60, le=120, description="Altura do assento em cm")
-    dry_weight: Optional[int] = Field(None, ge=50, le=500, description="Peso seco em kg")
-    fuel_capacity: Optional[float] = Field(None, ge=1, le=50, description="Capacidade do tanque em litros")
+    starter: Optional[str] = Field(None, max_length=50, description="Tipo de partida")
+    fuel_system: Optional[str] = Field(None, max_length=50, description="Sistema de combustível")
+    engine_displacement: Optional[int] = Field(None, ge=50, le=2500, description="Cilindrada em cc")
+    cooling: Optional[str] = Field(None, max_length=50, description="Sistema de refrigeração")
+    style: Optional[str] = Field(None, max_length=50, description="Estilo da motocicleta")
+    engine_type: Optional[str] = Field(None, max_length=50, description="Tipo do motor")
+    gears: Optional[int] = Field(None, ge=1, le=10, description="Número de marchas")
+    front_rear_brake: Optional[str] = Field(None, max_length=100, description="Sistema de freios")
     
     @validator('fuel_type')
     def validate_fuel_type(cls, v):
@@ -38,11 +39,12 @@ class MotorcycleCreateDto(BaseModel):
             raise ValueError(f"Tipo de combustível deve ser um dos seguintes: {', '.join(valid_fuels)}")
         return v
     
-    @validator('motorcycle_type')
-    def validate_motorcycle_type(cls, v):
-        valid_types = ["Street", "Sport", "Cruiser", "Adventure", "Touring", "Scooter", "Custom", "Trail"]
-        if v not in valid_types:
-            raise ValueError(f"Tipo de motocicleta deve ser um dos seguintes: {', '.join(valid_types)}")
+    @validator('status')
+    def validate_status(cls, v):
+        if v is not None:
+            valid_statuses = ["Ativo", "Vendido", "Inativo", "Manutenção"]
+            if v not in valid_statuses:
+                raise ValueError(f"Status deve ser um dos seguintes: {', '.join(valid_statuses)}")
         return v
 
 
@@ -55,7 +57,6 @@ class MotorcycleUpdateDto(BaseModel):
     """
     
     # Dados do MotorVehicle (opcionais para atualização)
-    brand: Optional[str] = Field(None, min_length=2, max_length=50, description="Marca da motocicleta")
     model: Optional[str] = Field(None, min_length=1, max_length=100, description="Modelo da motocicleta")
     year: Optional[int] = Field(None, ge=1900, le=2030, description="Ano de fabricação")
     price: Optional[float] = Field(None, gt=0, description="Preço da motocicleta")
@@ -67,13 +68,14 @@ class MotorcycleUpdateDto(BaseModel):
     description: Optional[str] = Field(None, max_length=1000, description="Descrição adicional")
     
     # Dados específicos da Motorcycle (opcionais para atualização)
-    motorcycle_type: Optional[str] = Field(None, description="Tipo de motocicleta")
-    cylinder_capacity: Optional[int] = Field(None, ge=50, le=2500, description="Cilindrada em cc")
-    has_abs: Optional[bool] = Field(None, description="Possui ABS")
-    has_traction_control: Optional[bool] = Field(None, description="Possui controle de tração")
-    seat_height: Optional[int] = Field(None, ge=60, le=120, description="Altura do assento em cm")
-    dry_weight: Optional[int] = Field(None, ge=50, le=500, description="Peso seco em kg")
-    fuel_capacity: Optional[float] = Field(None, ge=1, le=50, description="Capacidade do tanque em litros")
+    style: Optional[str] = Field(None, description="Estilo/tipo de motocicleta")
+    starter: Optional[str] = Field(None, description="Tipo de partida")
+    fuel_system: Optional[str] = Field(None, description="Sistema de combustível")
+    engine_displacement: Optional[int] = Field(None, ge=50, le=2500, description="Cilindrada em cc")
+    cooling: Optional[str] = Field(None, description="Sistema de arrefecimento")
+    engine_type: Optional[str] = Field(None, description="Tipo de motor")
+    gears: Optional[int] = Field(None, ge=1, le=7, description="Número de marchas")
+    front_rear_brake: Optional[str] = Field(None, description="Sistema de freios")
     
     @validator('fuel_type')
     def validate_fuel_type(cls, v):
@@ -83,14 +85,6 @@ class MotorcycleUpdateDto(BaseModel):
                 raise ValueError(f"Tipo de combustível deve ser um dos seguintes: {', '.join(valid_fuels)}")
         return v
     
-    @validator('motorcycle_type')
-    def validate_motorcycle_type(cls, v):
-        if v is not None:
-            valid_types = ["Street", "Sport", "Cruiser", "Adventure", "Touring", "Scooter", "Custom", "Trail"]
-            if v not in valid_types:
-                raise ValueError(f"Tipo de motocicleta deve ser um dos seguintes: {', '.join(valid_types)}")
-        return v
-    
     @validator('status')
     def validate_status(cls, v):
         if v is not None:
@@ -98,6 +92,48 @@ class MotorcycleUpdateDto(BaseModel):
             if v not in valid_statuses:
                 raise ValueError(f"Status deve ser um dos seguintes: {', '.join(valid_statuses)}")
         return v
+
+
+class MotorVehicleUpdateDto(BaseModel):
+    """DTO para atualização de dados do motor vehicle."""
+    model: Optional[str] = Field(None, min_length=1, max_length=100, description="Modelo do veículo")
+    year: Optional[str] = Field(None, min_length=4, max_length=50, description="Ano do veículo")  # Mudado para str
+    mileage: Optional[int] = Field(None, ge=0, description="Quilometragem do veículo")
+    fuel_type: Optional[str] = Field(None, min_length=1, max_length=20, description="Tipo de combustível")
+    engine_power: Optional[str] = Field(None, min_length=1, max_length=50, description="Potência do motor")
+    color: Optional[str] = Field(None, min_length=1, max_length=50, description="Cor do veículo")
+    status: Optional[str] = Field(None, min_length=1, max_length=20, description="Status do veículo")
+    description: Optional[str] = Field(None, description="Descrição do veículo")
+    price: Optional[float] = Field(None, gt=0, description="Preço do veículo")
+
+
+class MotorcycleUpdateNestedDto(BaseModel):
+    """DTO para atualização de motorcycle com estrutura aninhada ou flat."""
+    # Campos específicos da motorcycle
+    style: Optional[str] = Field(None, description="Estilo/tipo de motocicleta")
+    starter: Optional[str] = Field(None, description="Tipo de partida")
+    fuel_system: Optional[str] = Field(None, description="Sistema de combustível")
+    engine_displacement: Optional[int] = Field(None, ge=50, le=2500, description="Cilindrada em cc")
+    cooling: Optional[str] = Field(None, description="Sistema de arrefecimento")
+    engine_type: Optional[str] = Field(None, description="Tipo de motor")
+    gears: Optional[int] = Field(None, ge=1, le=7, description="Número de marchas")
+    front_rear_brake: Optional[str] = Field(None, description="Sistema de freios")
+    
+    # Estrutura aninhada (opcional)
+    motor_vehicle: Optional[MotorVehicleUpdateDto] = Field(None, description="Dados do veículo motor")
+    
+    # Campos diretos (para compatibilidade com formato flat)
+    model: Optional[str] = Field(None, min_length=1, max_length=100, description="Modelo da motocicleta")
+    year: Optional[str] = Field(None, min_length=4, max_length=50, description="Ano de fabricação")  # Mudado para str
+    price: Optional[float] = Field(None, gt=0, description="Preço da motocicleta")
+    mileage: Optional[int] = Field(None, ge=0, description="Quilometragem")
+    fuel_type: Optional[str] = Field(None, description="Tipo de combustível")
+    engine_power: Optional[str] = Field(None, min_length=1, max_length=20, description="Potência do motor")
+    color: Optional[str] = Field(None, min_length=2, max_length=30, description="Cor da motocicleta")
+    city: Optional[str] = Field(None, max_length=100, description="Cidade")
+    status: Optional[str] = Field(None, description="Status da motocicleta")
+    description: Optional[str] = Field(None, max_length=1000, description="Descrição adicional")
+    additional_description: Optional[str] = Field(None, max_length=1000, description="Descrição adicional (alias)")
 
 
 class MotorcycleResponseDto(BaseModel):
@@ -110,38 +146,40 @@ class MotorcycleResponseDto(BaseModel):
     
     id: int
     
-    # Dados do MotorVehicle
-    brand: str
+    # Dados do MotorVehicle (conforme tabela motor_vehicles)
     model: str
-    year: int
+    year: str  # No banco é VARCHAR(50)
     price: float
     mileage: int
     fuel_type: str
-    engine_power: str
     color: str
+    city: Optional[str] = None
+    additional_description: Optional[str] = None
     status: str
-    description: Optional[str] = None
     
-    # Dados específicos da Motorcycle
-    motorcycle_type: str
-    cylinder_capacity: int
-    has_abs: bool
-    has_traction_control: bool
-    seat_height: Optional[int] = None
-    dry_weight: Optional[int] = None
-    fuel_capacity: Optional[float] = None
+    # Dados específicos da Motorcycle (conforme tabela motorcycles)
+    starter: Optional[str] = None
+    fuel_system: Optional[str] = None
+    engine_displacement: Optional[int] = None
+    cooling: Optional[str] = None
+    style: Optional[str] = None
+    engine_type: Optional[str] = None
+    gears: Optional[int] = None
+    front_rear_brake: Optional[str] = None
     
     # Dados calculados
-    is_high_performance: bool = False
-    power_to_weight_ratio: Optional[float] = None
     display_name: str
     
     # Auditoria
     created_at: datetime
     updated_at: datetime
     
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(
+        from_attributes=True,
+        json_encoders={
+            datetime: lambda v: v.isoformat() if v else None
+        }
+    )
 
 
 class MotorcycleSummaryDto(BaseModel):
@@ -153,13 +191,12 @@ class MotorcycleSummaryDto(BaseModel):
     """
     
     id: int
-    brand: str
     model: str
-    year: int
+    year: str
     price: float
     mileage: int
-    motorcycle_type: str
-    cylinder_capacity: int
+    style: Optional[str] = None  # Campo real da tabela motorcycles
+    engine_displacement: Optional[int] = None  # Campo real da tabela motorcycles
     status: str
     
     class Config:
@@ -175,7 +212,6 @@ class MotorcycleSearchDto(BaseModel):
     """
     
     # Filtros do MotorVehicle
-    brand: Optional[str] = None
     model: Optional[str] = None
     year_min: Optional[int] = Field(None, ge=1900)
     year_max: Optional[int] = Field(None, le=2030)
@@ -187,15 +223,16 @@ class MotorcycleSearchDto(BaseModel):
     available_only: bool = False
     
     # Filtros específicos da Motorcycle
-    motorcycle_type: Optional[str] = None
-    cylinder_capacity_min: Optional[int] = Field(None, ge=50)
-    cylinder_capacity_max: Optional[int] = Field(None, le=2500)
-    has_abs: Optional[bool] = None
-    has_traction_control: Optional[bool] = None
+    style: Optional[str] = None
+    engine_displacement_min: Optional[int] = Field(None, ge=50)
+    engine_displacement_max: Optional[int] = Field(None, le=2500)
+    
+    # Ordenação
+    order_by_price: Optional[str] = Field(None, description="Ordenação por preço (asc/desc)")
     
     # Paginação
-    page: int = Field(1, ge=1)
-    size: int = Field(10, ge=1, le=100)
+    skip: int = Field(0, ge=0, description="Número de registros para pular")
+    limit: int = Field(100, ge=1, le=1000, description="Número máximo de registros")
     
     @validator('fuel_type')
     def validate_fuel_type(cls, v):
@@ -203,14 +240,6 @@ class MotorcycleSearchDto(BaseModel):
             valid_fuels = ["Gasolina", "Etanol", "Flex", "Elétrico"]
             if v not in valid_fuels:
                 raise ValueError(f"Tipo de combustível deve ser um dos seguintes: {', '.join(valid_fuels)}")
-        return v
-    
-    @validator('motorcycle_type')
-    def validate_motorcycle_type(cls, v):
-        if v is not None:
-            valid_types = ["Street", "Sport", "Cruiser", "Adventure", "Touring", "Scooter", "Custom", "Trail"]
-            if v not in valid_types:
-                raise ValueError(f"Tipo de motocicleta deve ser um dos seguintes: {', '.join(valid_types)}")
         return v
     
     @validator('status')
@@ -232,9 +261,8 @@ class MotorcycleListResponseDto(BaseModel):
     
     motorcycles: List[MotorcycleResponseDto]
     total: int
-    page: int
-    size: int
-    total_pages: int
+    skip: int
+    limit: int
     
     class Config:
         from_attributes = True

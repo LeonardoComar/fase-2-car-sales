@@ -50,7 +50,7 @@ class AuthenticateUserUseCase:
             # Gerar token
             access_token, jti, expires_at = self._create_access_token(
                 data={
-                    "sub": user.id,
+                    "sub": str(user.id),  # Convertendo para string
                     "email": user.email,
                     "role": user.role
                 }

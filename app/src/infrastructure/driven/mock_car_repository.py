@@ -42,14 +42,13 @@ class MockCarRepository(CarRepository):
         cars_data = [
             {
                 "license_plate": "ABC1D23",
-                "brand": "Toyota",
-                "model": "Corolla",
-                "year": 2022,
-                "color": "Branco",
-                "price": 95000.00,
-                "mileage": 15000,
+                "model": "Honda Civic",
+                "year": 2020,
+                "color": "Prata",
+                "price": 10000.00,
+                "mileage": 30000,
                 "fuel_type": "Flex",
-                "transmission": "Automático",
+                "transmission": "Automatica",
                 "engine": "1.8",
                 "doors": 4,
                 "status": "Ativo",
@@ -57,7 +56,6 @@ class MockCarRepository(CarRepository):
             },
             {
                 "license_plate": "XYZ9W87",
-                "brand": "Honda",
                 "model": "Civic",
                 "year": 2023,
                 "color": "Preto",
@@ -72,7 +70,6 @@ class MockCarRepository(CarRepository):
             },
             {
                 "license_plate": "DEF4G56",
-                "brand": "Volkswagen",
                 "model": "Golf",
                 "year": 2021,
                 "color": "Azul",
@@ -97,12 +94,16 @@ class MockCarRepository(CarRepository):
                 "color": data["color"],
                 "city": "São Paulo",  # Default city
                 "price": data["price"],
-                "bodywork": "Sedan" if data["model"] in ["Corolla", "Civic"] else "Hatchback",
-                "transmission": "Automatica" if data["transmission"] == "Automático" else "Manual",
+                "bodywork": "Sedan" if data["model"] in ["Honda Civic", "Civic"] else "Hatchback",
+                "transmission": "Automatica" if data["transmission"] == "Automatica" else "Manual",
                 "additional_description": data["description"]
             }
             
             car = Car.create_complete_car(**car_data)
+            
+            # Set the correct status after creation
+            car.motor_vehicle.status = data["status"]
+            
             # Generate auto-increment ID
             car_id = self._next_id
             self._next_id += 1
@@ -183,23 +184,6 @@ class MockCarRepository(CarRepository):
         await asyncio.sleep(0.01)  # Simular latência
         return list(self._cars.values())
     
-    async def find_by_brand(self, brand: str) -> List[Car]:
-        """
-        Busca carros por marca.
-        
-        Args:
-            brand: Marca dos carros
-            
-        Returns:
-            Lista de carros da marca especificada
-        """
-        await asyncio.sleep(0.01)  # Simular latência
-        
-        return [
-            car for car in self._cars.values()
-            if car.brand.lower() == brand.lower()
-        ]
-    
     async def find_by_status(self, status: str) -> List[Car]:
         """
         Busca carros por status.
@@ -278,6 +262,7 @@ class MockCarRepository(CarRepository):
         min_price: float = None,
         max_price: float = None,
         status: str = None,
+        order_by_price: str = None,
         skip: int = 0,
         limit: int = 100
     ) -> List[Car]:
@@ -294,6 +279,7 @@ class MockCarRepository(CarRepository):
             min_price: Preço mínimo
             max_price: Preço máximo
             status: Status do veículo
+            order_by_price: Ordenação por preço (asc/desc)
             skip: Número de registros para pular
             limit: Limite de registros
             
@@ -332,6 +318,13 @@ class MockCarRepository(CarRepository):
         if max_price:
             cars = [car for car in cars if float(car.motor_vehicle.price) <= max_price]
         
+        # Aplicar ordenação por preço
+        if order_by_price:
+            if order_by_price.lower() == 'asc':
+                cars = sorted(cars, key=lambda car: float(car.motor_vehicle.price))
+            elif order_by_price.lower() == 'desc':
+                cars = sorted(cars, key=lambda car: float(car.motor_vehicle.price), reverse=True)
+        
         # Aplicar paginação
         return cars[skip:skip + limit]
 
@@ -360,12 +353,6 @@ class MockCarRepository(CarRepository):
         
         # Aplicar filtros
         filtered_cars = list(self._cars.values())
-        
-        if 'brand' in filters and filters['brand']:
-            filtered_cars = [
-                car for car in filtered_cars
-                if car.brand.lower() == filters['brand'].lower()
-            ]
         
         if 'model' in filters and filters['model']:
             model_filter = filters['model'].lower()
@@ -437,9 +424,7 @@ class MockCarRepository(CarRepository):
         total = len(filtered_cars)
         
         # Aplicar ordenação
-        if order_by == "brand":
-            filtered_cars.sort(key=lambda c: c.brand, reverse=(order_direction == "desc"))
-        elif order_by == "model":
+        if order_by == "model":
             filtered_cars.sort(key=lambda c: c.model, reverse=(order_direction == "desc"))
         elif order_by == "year":
             filtered_cars.sort(key=lambda c: c.year, reverse=(order_direction == "desc"))
@@ -484,23 +469,6 @@ class MockCarRepository(CarRepository):
             if car.status == status
         )
     
-    async def count_by_brand(self, brand: str) -> int:
-        """
-        Conta carros por marca.
-        
-        Args:
-            brand: Marca dos carros
-            
-        Returns:
-            Número de carros da marca especificada
-        """
-        await asyncio.sleep(0.01)  # Simular latência
-        
-        return sum(
-            1 for car in self._cars.values()
-            if car.brand.lower() == brand.lower()
-        )
-    
     async def get_statistics(self) -> Dict[str, Any]:
         """
         Obtém estatísticas dos carros.
@@ -519,7 +487,6 @@ class MockCarRepository(CarRepository):
                 "sold_cars": 0,
                 "average_price": 0,
                 "average_mileage": 0,
-                "cars_by_brand": {},
                 "cars_by_fuel_type": {},
                 "cars_by_year": {}
             }
@@ -536,11 +503,6 @@ class MockCarRepository(CarRepository):
         average_mileage = total_mileage / total_cars
         
         # Distribuição por marca
-        cars_by_brand = {}
-        for car in self._cars.values():
-            cars_by_brand[car.brand] = cars_by_brand.get(car.brand, 0) + 1
-        
-        # Distribuição por tipo de combustível
         cars_by_fuel_type = {}
         for car in self._cars.values():
             cars_by_fuel_type[car.fuel_type] = cars_by_fuel_type.get(car.fuel_type, 0) + 1
@@ -556,7 +518,6 @@ class MockCarRepository(CarRepository):
             "sold_cars": sold_cars,
             "average_price": round(average_price, 2),
             "average_mileage": round(average_mileage, 0),
-            "cars_by_brand": cars_by_brand,
             "cars_by_fuel_type": cars_by_fuel_type,
             "cars_by_year": cars_by_year
         }
@@ -690,9 +651,7 @@ class MockCarRepository(CarRepository):
         cars = list(self._cars.values())
         
         for key, value in criteria.items():
-            if key == "brand" and value:
-                cars = [car for car in cars if car.brand.lower() == value.lower()]
-            elif key == "model" and value:
+            if key == "model" and value:
                 cars = [car for car in cars if car.model.lower() == value.lower()]
             elif key == "year" and value:
                 cars = [car for car in cars if car.year == value]

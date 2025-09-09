@@ -51,6 +51,7 @@ class SearchCarsUseCase:
                 min_price=float(search_params.min_price) if search_params.min_price else None,
                 max_price=float(search_params.max_price) if search_params.max_price else None,
                 status=search_params.status,
+                order_by_price=search_params.order_by_price,
                 skip=search_params.skip,
                 limit=search_params.limit
             )

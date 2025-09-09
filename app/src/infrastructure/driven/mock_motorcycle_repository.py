@@ -4,9 +4,27 @@ Implementação Mock do MotorcycleRepository - Infrastructure Layer
 Simula operações de persistência para motocicletas em memória.
 Útil para testes e desenvolvimento inicial.
 
-Aplicando princípios SOLID:
-- SRP: Responsável apenas pela persistência mock de motocicletas
-- OCP: Extensível para novas operações sem modificar existentes
+Aplicando princípios SOLID:    async def find_available(self) -> List[Motorcycle]: apenas pela persistência mock de motocicletas
+- OCP: Extensível para nov        if        if 'm            filtered_motorcycles = [
+                motorcycle for motorcycle in filtered_motorcycles
+                if motorcycle.engine_displacement <= filters['max_engine_displacement']
+            ]ngine_displacement' in filters and filters['min_engine_displacement']:
+            filtered_motorcycles = [
+                motorcycle for motorcycle in filtered_motorcycles
+                if motorcycle.engine_displacement >= filters['min_engine_displacement']
+            ]
+        
+        if 'max_engine_displacement' in filters and filters['max_engine_displacement']:ngine_displacement' in filters and filters['min_engine_displacement']:
+            filtered_motorcycles = [
+                motorcycle for motorcycle in filtered_motorcycles
+                if motorcycle.engine_displacement >= filters['min_engine_displacement']
+            ]
+        
+        if 'max_engine_displacement' in filters and filters['max_engine_displacement']:
+            filtered_motorcycles = [
+                motorcycle for motorcycle in filtered_motorcycles
+                if motorcycle.engine_displacement <= filters['max_engine_displacement']
+            ]s sem modificar existentes
 - LSP: Pode substituir qualquer implementação do repositório
 - ISP: Implementa interface específica do repositório
 - DIP: Implementa abstração definida no domínio
@@ -43,7 +61,6 @@ class MockMotorcycleRepository(MotorcycleRepository):
         motorcycles_data = [
             {
                 "license_plate": "MOT1A23",
-                "brand": "Honda",
                 "model": "CB 600F Hornet",
                 "year": 2023,
                 "color": "Vermelha",
@@ -51,14 +68,13 @@ class MockMotorcycleRepository(MotorcycleRepository):
                 "mileage": 5000,
                 "fuel_type": "Gasolina",
                 "engine": "600cc",
-                "cylinder_capacity": 600,
+                "engine_displacement": 600,
                 "motorcycle_type": "Street",
                 "status": "Disponível",
                 "description": "Naked esportiva, ágil e potente"
             },
             {
                 "license_plate": "MOT2B45",
-                "brand": "Yamaha",
                 "model": "MT-07",
                 "year": 2022,
                 "color": "Azul",
@@ -66,14 +82,13 @@ class MockMotorcycleRepository(MotorcycleRepository):
                 "mileage": 12000,
                 "fuel_type": "Gasolina",
                 "engine": "689cc",
-                "cylinder_capacity": 689,
+                "engine_displacement": 689,
                 "motorcycle_type": "Naked",
                 "status": "Disponível",
                 "description": "Bicilíndrica versátil para uso urbano e estrada"
             },
             {
                 "license_plate": "MOT3C67",
-                "brand": "Kawasaki",
                 "model": "Ninja 400",
                 "year": 2021,
                 "color": "Verde",
@@ -81,7 +96,7 @@ class MockMotorcycleRepository(MotorcycleRepository):
                 "mileage": 18000,
                 "fuel_type": "Gasolina",
                 "engine": "399cc",
-                "cylinder_capacity": 399,
+                "engine_displacement": 399,
                 "motorcycle_type": "Sport",
                 "status": "Vendida",
                 "description": "Esportiva de entrada ideal para iniciantes"
@@ -161,23 +176,6 @@ class MockMotorcycleRepository(MotorcycleRepository):
         """
         await asyncio.sleep(0.01)  # Simular latência
         return list(self._motorcycles.values())
-    
-    async def find_by_brand(self, brand: str) -> List[Motorcycle]:
-        """
-        Busca motocicletas por marca.
-        
-        Args:
-            brand: Marca das motocicletas
-            
-        Returns:
-            Lista de motocicletas da marca especificada
-        """
-        await asyncio.sleep(0.01)  # Simular latência
-        
-        return [
-            motorcycle for motorcycle in self._motorcycles.values()
-            if motorcycle.brand.lower() == brand.lower()
-        ]
     
     async def find_by_status(self, status: str) -> List[Motorcycle]:
         """
@@ -279,8 +277,7 @@ class MockMotorcycleRepository(MotorcycleRepository):
         
         return [
             motorcycle for motorcycle in self._motorcycles.values()
-            if (search_lower in motorcycle.brand.lower() or
-                search_lower in motorcycle.model.lower() or
+            if (search_lower in motorcycle.model.lower() or
                 search_lower in motorcycle.motorcycle_type.lower() or
                 search_lower in motorcycle.color.lower() or
                 search_lower in motorcycle.fuel_type.lower())
@@ -311,12 +308,6 @@ class MockMotorcycleRepository(MotorcycleRepository):
         
         # Aplicar filtros
         filtered_motorcycles = list(self._motorcycles.values())
-        
-        if 'brand' in filters and filters['brand']:
-            filtered_motorcycles = [
-                motorcycle for motorcycle in filtered_motorcycles
-                if motorcycle.brand.lower() == filters['brand'].lower()
-            ]
         
         if 'model' in filters and filters['model']:
             model_filter = filters['model'].lower()
@@ -388,9 +379,7 @@ class MockMotorcycleRepository(MotorcycleRepository):
         total = len(filtered_motorcycles)
         
         # Aplicar ordenação
-        if order_by == "brand":
-            filtered_motorcycles.sort(key=lambda m: m.brand, reverse=(order_direction == "desc"))
-        elif order_by == "model":
+        if order_by == "model":
             filtered_motorcycles.sort(key=lambda m: m.model, reverse=(order_direction == "desc"))
         elif order_by == "year":
             filtered_motorcycles.sort(key=lambda m: m.year, reverse=(order_direction == "desc"))
@@ -435,23 +424,6 @@ class MockMotorcycleRepository(MotorcycleRepository):
             if motorcycle.status == status
         )
     
-    async def count_by_brand(self, brand: str) -> int:
-        """
-        Conta motocicletas por marca.
-        
-        Args:
-            brand: Marca das motocicletas
-            
-        Returns:
-            Número de motocicletas da marca especificada
-        """
-        await asyncio.sleep(0.01)  # Simular latência
-        
-        return sum(
-            1 for motorcycle in self._motorcycles.values()
-            if motorcycle.brand.lower() == brand.lower()
-        )
-    
     async def count_by_type(self, motorcycle_type: str) -> int:
         """
         Conta motocicletas por tipo.
@@ -486,8 +458,7 @@ class MockMotorcycleRepository(MotorcycleRepository):
                 "available_motorcycles": 0,
                 "sold_motorcycles": 0,
                 "average_price": 0,
-                "average_cylinder_capacity": 0,
-                "motorcycles_by_brand": {},
+                "average_engine_displacement": 0,
                 "motorcycles_by_type": {},
                 "motorcycles_by_year": {}
             }
@@ -500,13 +471,8 @@ class MockMotorcycleRepository(MotorcycleRepository):
         total_price = sum(m.price for m in self._motorcycles.values())
         average_price = total_price / total_motorcycles
         
-        total_cc = sum(m.cylinder_capacity for m in self._motorcycles.values())
+        total_cc = sum(m.engine_displacement for m in self._motorcycles.values() if m.engine_displacement)
         average_cc = total_cc / total_motorcycles
-        
-        # Distribuição por marca
-        motorcycles_by_brand = {}
-        for motorcycle in self._motorcycles.values():
-            motorcycles_by_brand[motorcycle.brand] = motorcycles_by_brand.get(motorcycle.brand, 0) + 1
         
         # Distribuição por tipo
         motorcycles_by_type = {}
@@ -523,8 +489,7 @@ class MockMotorcycleRepository(MotorcycleRepository):
             "available_motorcycles": available_motorcycles,
             "sold_motorcycles": sold_motorcycles,
             "average_price": round(average_price, 2),
-            "average_cylinder_capacity": round(average_cc, 0),
-            "motorcycles_by_brand": motorcycles_by_brand,
+            "average_engine_displacement": round(average_cc, 0),
             "motorcycles_by_type": motorcycles_by_type,
             "motorcycles_by_year": motorcycles_by_year
         }

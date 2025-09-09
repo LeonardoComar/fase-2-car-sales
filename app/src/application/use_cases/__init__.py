@@ -14,11 +14,10 @@ from .clients import (
 # Employee Use Cases
 from .employees import (
     CreateEmployeeUseCase,
-    GetEmployeeByIdUseCase,
+    GetEmployeeUseCase,
     UpdateEmployeeUseCase,
     DeleteEmployeeUseCase,
     ListEmployeesUseCase,
-    PromoteEmployeeUseCase,
     UpdateEmployeeStatusUseCase,
 )
 
@@ -77,11 +76,10 @@ __all__ = [
     "UpdateClientStatusUseCase",
     # Employee Use Cases
     "CreateEmployeeUseCase",
-    "GetEmployeeByIdUseCase",
+    "GetEmployeeUseCase",
     "UpdateEmployeeUseCase",
     "DeleteEmployeeUseCase",
     "ListEmployeesUseCase",
-    "PromoteEmployeeUseCase",
     "UpdateEmployeeStatusUseCase",
     # Vehicle Use Cases
     "CreateCarUseCase",

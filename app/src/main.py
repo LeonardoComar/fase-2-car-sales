@@ -15,11 +15,14 @@ from src.application.use_cases.users import (
     GetUserUseCase,
     AuthenticateUserUseCase,
 )
+from src.application.use_cases.get_current_user_use_case import GetCurrentUserUseCase
 
 # Adapters imports
 from src.adapters.persistence.gateways.user_gateway import UserGateway
 from src.adapters.rest.controllers.user_controller import UserController
 from src.adapters.rest.presenters.user_presenter import UserPresenter
+from src.infrastructure.driven.mock_user_repository import MockUserRepository
+from src.infrastructure.driven.mock_blacklisted_token_repository import MockBlacklistedTokenRepository
 
 # Router principal com todos os módulos
 from src.adapters.rest.router import clean_router
@@ -138,10 +141,19 @@ def create_app() -> FastAPI:
     # Camada de Infraestrutura
     user_gateway = UserGateway()
     
+    # Configurar repositórios mock para consistência
+    mock_user_repository = MockUserRepository()
+    mock_blacklisted_token_repository = MockBlacklistedTokenRepository()
+    
     # Camada de Aplicação (Casos de Uso)
-    create_user_use_case = CreateUserUseCase(user_gateway)
-    get_user_use_case = GetUserUseCase(user_gateway)
-    authenticate_user_use_case = AuthenticateUserUseCase(user_gateway)
+    create_user_use_case = CreateUserUseCase(mock_user_repository)
+    get_user_use_case = GetUserUseCase(mock_user_repository)
+    authenticate_user_use_case = AuthenticateUserUseCase(mock_user_repository)
+    get_current_user_use_case = GetCurrentUserUseCase(
+        user_repository=mock_user_repository,
+        blacklisted_token_repository=mock_blacklisted_token_repository,
+        secret_key="your-secret-key-here-change-in-production"
+    )
     
     # Camada de Adaptadores
     user_presenter = UserPresenter()
@@ -149,6 +161,7 @@ def create_app() -> FastAPI:
         create_use_case=create_user_use_case,
         get_use_case=get_user_use_case,
         authenticate_use_case=authenticate_user_use_case,
+        get_current_user_use_case=get_current_user_use_case,
         user_presenter=user_presenter
     )
     

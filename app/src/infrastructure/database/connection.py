@@ -2,6 +2,7 @@ from sqlalchemy import create_engine, Engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, Session
 from contextlib import contextmanager
+from typing import Generator
 import os
 import time
 import logging
@@ -13,7 +14,7 @@ load_dotenv()
 # Setup logging
 logger = logging.getLogger(__name__)
 
-# Base class for all models
+# Base class for all models - SINGLE SOURCE OF TRUTH
 Base = declarative_base()
 
 
@@ -87,7 +88,7 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 @contextmanager
-def get_db_session() -> Session:
+def get_db_session() -> Generator[Session, None, None]:
     """
     Context manager for database sessions.
     
@@ -113,6 +114,13 @@ def create_tables():
     Create all database tables based on the models.
     """
     try:
+        # Import all models to ensure they are registered with Base
+        from src.infrastructure.database.models import (
+            UserModel, MotorVehicleModel, CarModel, MotorcycleModel,
+            ClientModel, SaleModel, MessageModel
+            # EmployeeModel,  # TODO: Implementar quando necessário
+        )
+        
         logger.info("Creating database tables...")
         Base.metadata.create_all(bind=engine)
         logger.info("✅ Database tables created successfully")

@@ -9,19 +9,21 @@ cada modelo é responsável pela estrutura de uma tabela.
 """
 
 from .user_model import UserModel
+from .motor_vehicle_model import MotorVehicleModel
 from .car_model import CarModel
 from .motorcycle_model import MotorcycleModel
 from .client_model import ClientModel
-from .employee_model import EmployeeModel
+# from .employee_model import EmployeeModel  # TODO: Implementar quando necessário
 from .sale_model import SaleModel
 from .message_model import MessageModel
 
 __all__ = [
     "UserModel",
+    "MotorVehicleModel",
     "CarModel",
-    "MotorcycleModel",
+    "MotorcycleModel", 
     "ClientModel",
-    "EmployeeModel",
+    # "EmployeeModel",  # TODO: Implementar quando necessário
     "SaleModel",
     "MessageModel"
 ]

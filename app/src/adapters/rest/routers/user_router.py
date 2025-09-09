@@ -7,15 +7,23 @@ Aplicando padrões REST e Clean Architecture.
 
 from typing import Optional
 from uuid import UUID
+import logging
 
 from fastapi import APIRouter, Depends, Query, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import JSONResponse
+
+# Configure logging
+logger = logging.getLogger(__name__)
 
 from src.application.dtos.user_dto import (
     UserCreateDto, UserUpdateDto, LoginDto
 )
 from src.adapters.rest.controllers.user_controller import UserController
 from src.adapters.rest.dependencies import get_user_controller
+
+# Configuração do bearer token para autenticação
+security = HTTPBearer()
 
 
 # Criar router para usuários
@@ -79,6 +87,43 @@ async def logout(
     Requer header: Authorization: Bearer {token}
     """
     return await controller.logout_user()
+
+
+@auth_router.get(
+    "/me",
+    status_code=status.HTTP_200_OK,
+    summary="Informações do usuário atual",
+    description="Obtém informações do usuário autenticado"
+)
+async def get_current_user_info(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    controller: UserController = Depends(get_user_controller)
+) -> JSONResponse:
+    """
+    Obtém informações do usuário atual baseado no token JWT.
+    
+    - **Authorization**: Header Bearer token
+    
+    Retorna dados do usuário autenticado.
+    """
+    try:
+        logger.info("🚀 [AUTH_ENDPOINT] Iniciando endpoint /auth/me")
+        logger.info(f"🔑 [AUTH_ENDPOINT] Credentials recebidas: {credentials}")
+        logger.info(f"🔐 [AUTH_ENDPOINT] Scheme: {credentials.scheme}")
+        logger.info(f"📋 [AUTH_ENDPOINT] Credentials type: {type(credentials.credentials)}")
+        
+        token = credentials.credentials
+        logger.info(f"� [AUTH_ENDPOINT] Token extraído: '{token}'")
+        logger.info(f"📐 [AUTH_ENDPOINT] Token length: {len(token) if token else 'None'}")
+        logger.info(f"🔍 [AUTH_ENDPOINT] Token preview: {token[:50]}..." if len(token) > 50 else f"Token completo: '{token}'")
+        
+        result = await controller.get_current_user(token)
+        logger.info("✅ [AUTH_ENDPOINT] Endpoint /auth/me concluído com sucesso")
+        return result
+        
+    except Exception as e:
+        logger.error(f"💥 [AUTH_ENDPOINT] Erro no endpoint /auth/me: {type(e).__name__}: {str(e)}", exc_info=True)
+        raise
 
 
 # === GERENCIAMENTO DE USUÁRIOS ===

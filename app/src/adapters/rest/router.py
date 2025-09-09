@@ -8,18 +8,18 @@ responsável apenas pelo roteamento de alto nível.
 from fastapi import APIRouter
 
 # Routes da estrutura Clean Architecture
-from src.adapters.rest.sale_routes import sale_router
-from src.adapters.rest.employee_routes import employee_router
-from src.adapters.rest.message_routes import message_router
-from src.adapters.rest.client_routes import client_router
-from src.adapters.rest.car_routes import car_router
-from src.adapters.rest.motorcycle_routes import motorcycle_router
-from src.adapters.rest.user_routes import user_router, auth_router
-from src.adapters.rest.blacklisted_token_routes import blacklisted_token_router
-from src.adapters.rest.vehicle_image_routes import vehicle_image_router
+from src.adapters.rest.routers.sale_router import sale_router
+from src.adapters.rest.routers.employee_router import employee_router
+from src.adapters.rest.routers.message_router import message_router
+from src.adapters.rest.routers.client_router import client_router
+from src.adapters.rest.routers.car_router import car_router
+from src.adapters.rest.routers.motorcycle_router import motorcycle_router
+from src.adapters.rest.routers.user_router import user_router, auth_router
+from src.adapters.rest.routers.blacklisted_token_router import blacklisted_token_router
+from src.adapters.rest.routers.vehicle_image_router import vehicle_image_router
 
 # Novo router de autenticação com Clean Architecture completa
-# from src.adapters.rest.routers.auth_router import auth_router as clean_auth_router
+# from src.adapters.rest.routers.auth_router import create_auth_router
 
 # Criar roteador principal para a nova estrutura
 clean_router = APIRouter()

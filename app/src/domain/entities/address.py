@@ -7,7 +7,6 @@ Entidade para gerenciamento de endereços seguindo Clean Architecture
 from dataclasses import dataclass
 from typing import Optional
 from datetime import datetime
-from uuid import UUID, uuid4
 
 from src.domain.exceptions import ValidationError
 
@@ -26,15 +25,12 @@ class Address:
     state: str
     zip_code: str
     country: str = "Brasil"
-    id: Optional[UUID] = None
+    id: Optional[int] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     
     def __post_init__(self):
         """Validações após inicialização"""
-        if self.id is None:
-            self.id = uuid4()
-        
         self.validate()
     
     def validate(self) -> None:

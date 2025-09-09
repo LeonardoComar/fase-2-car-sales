@@ -1,0 +1,11 @@
+{
+  "name": "Carlos Roberto Santos",
+  "email": "carlos.roberto@empresa.com",
+  "phone": "(11) 94444-5678",
+  "cpf": "444.555.666-77",
+  "street": "Rua dos Desenvolvedores, 500",
+  "city": "São Paulo",
+  "state": "SP",
+  "zip_code": "04567-890",
+  "country": "Brasil"
+}

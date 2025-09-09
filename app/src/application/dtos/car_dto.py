@@ -58,7 +58,6 @@ class MotorVehicleUpdateDto(BaseModel):
     """
     DTO para atualização de dados do motor vehicle.
     """
-    brand: Optional[str] = Field(None, min_length=1, max_length=100, description="Marca do veículo")
     model: Optional[str] = Field(None, min_length=1, max_length=100, description="Modelo do veículo")
     year: Optional[int] = Field(None, ge=1900, le=2030, description="Ano do veículo")
     mileage: Optional[int] = Field(None, ge=0, description="Quilometragem do veículo")
@@ -200,6 +199,7 @@ class CarSearchDto(BaseModel):
     min_price: Optional[Decimal] = Field(None, ge=0, description="Preço mínimo")
     max_price: Optional[Decimal] = Field(None, ge=0, description="Preço máximo")
     status: Optional[str] = Field(None, description="Status do veículo")
+    order_by_price: Optional[str] = Field(None, description="Ordenação por preço (asc/desc)")
     skip: int = Field(0, ge=0, description="Número de registros para pular")
     limit: int = Field(100, ge=1, le=1000, description="Número máximo de registros")
 

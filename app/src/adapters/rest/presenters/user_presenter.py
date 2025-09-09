@@ -1,4 +1,5 @@
 from src.application.dtos.user_dto import UserResponseDto, TokenDto
+from src.domain.entities.user import User
 from typing import Optional
 
 
@@ -12,6 +13,26 @@ class UserPresenter:
     Aplicando o princípio Open/Closed Principle (OCP) - 
     aberto para extensão, fechado para modificação.
     """
+    
+    @staticmethod
+    def present_user(user: User) -> dict:
+        """
+        Apresenta os dados de um objeto User como dict.
+        
+        Args:
+            user: Entidade User do domínio
+            
+        Returns:
+            dict: Dados do usuário formatados para API
+        """
+        return {
+            "id": user.id,
+            "email": user.email,
+            "role": user.role,
+            "employee_id": user.employee_id,
+            "created_at": user.created_at.isoformat() if user.created_at else None,
+            "updated_at": user.updated_at.isoformat() if user.updated_at else None
+        }
     
     @staticmethod
     def present(user_response: UserResponseDto) -> UserResponseDto:

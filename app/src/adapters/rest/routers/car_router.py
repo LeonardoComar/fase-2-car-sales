@@ -42,7 +42,6 @@ async def create_car(
     """
     Cria um novo carro.
     
-    - **brand**: Marca do carro
     - **model**: Modelo do carro
     - **year**: Ano de fabricação
     - **price**: Preço de venda
@@ -109,6 +108,7 @@ async def list_cars(
         transmission=transmission,
         city=city,
         status=status,
+        order_by_price=order_by_price,
         skip=skip,
         limit=limit
     )

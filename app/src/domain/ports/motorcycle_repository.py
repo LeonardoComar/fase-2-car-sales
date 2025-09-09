@@ -58,7 +58,6 @@ class MotorcycleRepository(ABC):
     @abstractmethod
     async def find_by_criteria(
         self,
-        brand: Optional[str] = None,
         model: Optional[str] = None,
         year_min: Optional[int] = None,
         year_max: Optional[int] = None,
@@ -66,13 +65,12 @@ class MotorcycleRepository(ABC):
         price_max: Optional[float] = None,
         mileage_max: Optional[int] = None,
         fuel_type: Optional[str] = None,
-        motorcycle_type: Optional[str] = None,
-        cylinder_capacity_min: Optional[int] = None,
-        cylinder_capacity_max: Optional[int] = None,
-        has_abs: Optional[bool] = None,
-        has_traction_control: Optional[bool] = None,
+        style: Optional[str] = None,
+        engine_displacement_min: Optional[int] = None,
+        engine_displacement_max: Optional[int] = None,
         status: Optional[str] = None,
         available_only: bool = False,
+        order_by_price: Optional[str] = None,
         skip: int = 0,
         limit: int = 100
     ) -> List[Motorcycle]:
@@ -116,7 +114,6 @@ class MotorcycleRepository(ABC):
     @abstractmethod
     async def count_by_criteria(
         self,
-        brand: Optional[str] = None,
         model: Optional[str] = None,
         year_min: Optional[int] = None,
         year_max: Optional[int] = None,
@@ -124,11 +121,9 @@ class MotorcycleRepository(ABC):
         price_max: Optional[float] = None,
         mileage_max: Optional[int] = None,
         fuel_type: Optional[str] = None,
-        motorcycle_type: Optional[str] = None,
-        cylinder_capacity_min: Optional[int] = None,
-        cylinder_capacity_max: Optional[int] = None,
-        has_abs: Optional[bool] = None,
-        has_traction_control: Optional[bool] = None,
+        style: Optional[str] = None,
+        engine_displacement_min: Optional[int] = None,
+        engine_displacement_max: Optional[int] = None,
         status: Optional[str] = None,
         available_only: bool = False
     ) -> int:

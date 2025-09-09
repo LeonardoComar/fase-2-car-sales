@@ -4,7 +4,8 @@ from sqlalchemy.exc import SQLAlchemyError
 from src.domain.entities.car import Car
 from src.domain.entities.motor_vehicle import MotorVehicle
 from src.domain.ports.car_repository import CarRepository
-from src.infrastructure.database.models.car_model import CarModel, MotorVehicleModel
+from src.infrastructure.database.models.car_model import CarModel
+from src.infrastructure.database.models.motor_vehicle_model import MotorVehicleModel
 from src.infrastructure.database.connection import get_db_session
 import logging
 
@@ -257,6 +258,7 @@ class CarGateway(CarRepository):
         min_price: float = None,
         max_price: float = None,
         status: str = None,
+        order_by_price: str = None,
         skip: int = 0,
         limit: int = 100
     ) -> List[Car]:
@@ -273,6 +275,7 @@ class CarGateway(CarRepository):
             min_price: Preço mínimo
             max_price: Preço máximo
             status: Status do veículo
+            order_by_price: Ordenação por preço (asc/desc)
             skip: Número de registros para pular
             limit: Limite de registros
             
@@ -281,28 +284,35 @@ class CarGateway(CarRepository):
         """
         try:
             with get_db_session() as session:
-                # Usar o relacionamento definido no modelo
-                query = session.query(CarModel)
+                # Fazer JOIN apenas uma vez com a tabela motor_vehicles
+                query = session.query(CarModel).join(MotorVehicleModel)
                 
                 # Aplicar filtros
                 if model:
-                    query = query.join(MotorVehicleModel).filter(MotorVehicleModel.model.ilike(f"%{model}%"))
+                    query = query.filter(MotorVehicleModel.model.ilike(f"%{model}%"))
                 if year:
-                    query = query.join(MotorVehicleModel).filter(MotorVehicleModel.year == year)
+                    query = query.filter(MotorVehicleModel.year == year)
                 if bodywork:
                     query = query.filter(CarModel.bodywork.ilike(f"%{bodywork}%"))
                 if transmission:
                     query = query.filter(CarModel.transmission.ilike(f"%{transmission}%"))
                 if fuel_type:
-                    query = query.join(MotorVehicleModel).filter(MotorVehicleModel.fuel_type.ilike(f"%{fuel_type}%"))
+                    query = query.filter(MotorVehicleModel.fuel_type.ilike(f"%{fuel_type}%"))
                 if city:
-                    query = query.join(MotorVehicleModel).filter(MotorVehicleModel.city.ilike(f"%{city}%"))
+                    query = query.filter(MotorVehicleModel.city.ilike(f"%{city}%"))
                 if status:
-                    query = query.join(MotorVehicleModel).filter(MotorVehicleModel.status.ilike(f"%{status}%"))
+                    query = query.filter(MotorVehicleModel.status == status)
                 if min_price:
-                    query = query.join(MotorVehicleModel).filter(MotorVehicleModel.price >= min_price)
+                    query = query.filter(MotorVehicleModel.price >= min_price)
                 if max_price:
-                    query = query.join(MotorVehicleModel).filter(MotorVehicleModel.price <= max_price)
+                    query = query.filter(MotorVehicleModel.price <= max_price)
+                
+                # Aplicar ordenação por preço
+                if order_by_price:
+                    if order_by_price.lower() == 'asc':
+                        query = query.order_by(MotorVehicleModel.price.asc())
+                    elif order_by_price.lower() == 'desc':
+                        query = query.order_by(MotorVehicleModel.price.desc())
                 
                 # Aplicar paginação
                 query = query.offset(skip).limit(limit)
@@ -327,7 +337,6 @@ class CarGateway(CarRepository):
 
     async def find_by_criteria(
         self,
-        brand: Optional[str] = None,
         model: Optional[str] = None,
         year_min: Optional[int] = None,
         year_max: Optional[int] = None,
@@ -349,9 +358,7 @@ class CarGateway(CarRepository):
             with get_db_session() as session:
                 query = session.query(CarModel).join(MotorVehicleModel)
                 
-                # Aplicar filtros
-                if brand:
-                    query = query.filter(MotorVehicleModel.brand.ilike(f"%{brand}%"))
+                # Aplicar filtros)
                 if model:
                     query = query.filter(MotorVehicleModel.model.ilike(f"%{model}%"))
                 if year_min:
@@ -398,7 +405,6 @@ class CarGateway(CarRepository):
 
     async def count_by_criteria(
         self,
-        brand: Optional[str] = None,
         model: Optional[str] = None,
         year_min: Optional[int] = None,
         year_max: Optional[int] = None,
@@ -419,8 +425,6 @@ class CarGateway(CarRepository):
                 query = session.query(CarModel).join(MotorVehicleModel)
                 
                 # Aplicar os mesmos filtros
-                if brand:
-                    query = query.filter(MotorVehicleModel.brand.ilike(f"%{brand}%"))
                 if model:
                     query = query.filter(MotorVehicleModel.model.ilike(f"%{model}%"))
                 if year_min:
@@ -470,8 +474,6 @@ class CarGateway(CarRepository):
                 query = session.query(CarModel).join(MotorVehicleModel)
                 
                 # Aplicar filtros
-                if filters.get('brand'):
-                    query = query.filter(MotorVehicleModel.brand.ilike(f"%{filters['brand']}%"))
                 if filters.get('model'):
                     query = query.filter(MotorVehicleModel.model.ilike(f"%{filters['model']}%"))
                 if filters.get('year_min'):

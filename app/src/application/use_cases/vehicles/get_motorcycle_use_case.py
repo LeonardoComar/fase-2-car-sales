@@ -51,32 +51,32 @@ class GetMotorcycleUseCase:
         Returns:
             MotorcycleResponseDto: DTO de resposta
         """
+        from datetime import datetime
+        
         return MotorcycleResponseDto(
             id=motorcycle.id,
             # Dados do MotorVehicle
-            brand=motorcycle.motor_vehicle.brand,
             model=motorcycle.motor_vehicle.model,
             year=motorcycle.motor_vehicle.year,
-            price=motorcycle.motor_vehicle.price,
+            price=float(motorcycle.motor_vehicle.price),
             mileage=motorcycle.motor_vehicle.mileage,
             fuel_type=motorcycle.motor_vehicle.fuel_type,
-            engine_power=motorcycle.motor_vehicle.engine_power,
             color=motorcycle.motor_vehicle.color,
+            city=motorcycle.motor_vehicle.city,
+            additional_description=motorcycle.motor_vehicle.additional_description,
             status=motorcycle.motor_vehicle.status,
-            description=motorcycle.motor_vehicle.description,
             # Dados específicos da Motorcycle
-            motorcycle_type=motorcycle.motorcycle_type,
-            cylinder_capacity=motorcycle.cylinder_capacity,
-            has_abs=motorcycle.has_abs,
-            has_traction_control=motorcycle.has_traction_control,
-            seat_height=motorcycle.seat_height,
-            dry_weight=motorcycle.dry_weight,
-            fuel_capacity=motorcycle.fuel_capacity,
+            starter=motorcycle.starter,
+            fuel_system=motorcycle.fuel_system,
+            engine_displacement=motorcycle.engine_displacement,
+            cooling=motorcycle.cooling,
+            style=motorcycle.style,
+            engine_type=motorcycle.engine_type,
+            gears=motorcycle.gears,
+            front_rear_brake=motorcycle.front_rear_brake,
             # Dados calculados
-            is_high_performance=motorcycle.is_high_performance(),
-            power_to_weight_ratio=motorcycle.get_power_to_weight_ratio(),
-            display_name=motorcycle.get_display_name(),
-            # Auditoria
-            created_at=motorcycle.created_at,
-            updated_at=motorcycle.updated_at
+            display_name=f"{motorcycle.motor_vehicle.model} ({motorcycle.motor_vehicle.year})",
+            # Auditoria - usando valores padrão se None
+            created_at=motorcycle.motor_vehicle.created_at or datetime.now(),
+            updated_at=motorcycle.updated_at or motorcycle.motor_vehicle.updated_at or datetime.now()
         )

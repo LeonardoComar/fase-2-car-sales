@@ -1,8 +1,7 @@
-from sqlalchemy import Column, Integer, String, Boolean, Float, DateTime
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import Column, Integer, String, Boolean, Float, DateTime, ForeignKey
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-
-Base = declarative_base()
+from src.infrastructure.database.connection import Base
 
 
 class MotorcycleModel(Base):
@@ -15,35 +14,36 @@ class MotorcycleModel(Base):
     
     __tablename__ = "motorcycles"
     
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    motor_vehicle_id = Column(Integer, nullable=False, unique=True, index=True)
-    motorcycle_type = Column(String(30), nullable=False, index=True)
-    cylinder_capacity = Column(Integer, nullable=False, index=True)
-    has_abs = Column(Boolean, default=False)
-    has_traction_control = Column(Boolean, default=False)
-    seat_height = Column(Integer, nullable=True)  # em cm
-    dry_weight = Column(Integer, nullable=True)  # em kg
-    fuel_capacity = Column(Float, nullable=True)  # em litros
+    vehicle_id = Column(Integer, ForeignKey('motor_vehicles.id'), primary_key=True)
+    starter = Column(String(50))
+    fuel_system = Column(String(50))
+    engine_displacement = Column(Integer)
+    cooling = Column(String(50))
+    style = Column(String(50))
+    engine_type = Column(String(50))
+    gears = Column(Integer)
+    front_rear_brake = Column(String(100))
     
     # Auditoria
-    created_at = Column(DateTime, nullable=False, default=func.now())
     updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
     
+    # Relacionamento com MotorVehicle
+    motor_vehicle = relationship("MotorVehicleModel", back_populates="motorcycle")
+    
     def __repr__(self):
-        return f"<MotorcycleModel(id={self.id}, motor_vehicle_id={self.motor_vehicle_id}, type='{self.motorcycle_type}')>"
+        return f"<MotorcycleModel(vehicle_id={self.vehicle_id}, style='{self.style}', engine_displacement={self.engine_displacement})>"
     
     def to_dict(self):
         """Converte o modelo para dicionário."""
         return {
-            "id": self.id,
-            "motor_vehicle_id": self.motor_vehicle_id,
-            "motorcycle_type": self.motorcycle_type,
-            "cylinder_capacity": self.cylinder_capacity,
-            "has_abs": self.has_abs,
-            "has_traction_control": self.has_traction_control,
-            "seat_height": self.seat_height,
-            "dry_weight": self.dry_weight,
-            "fuel_capacity": self.fuel_capacity,
-            "created_at": self.created_at,
+            "vehicle_id": self.vehicle_id,
+            "starter": self.starter,
+            "fuel_system": self.fuel_system,
+            "engine_displacement": self.engine_displacement,
+            "cooling": self.cooling,
+            "style": self.style,
+            "engine_type": self.engine_type,
+            "gears": self.gears,
+            "front_rear_brake": self.front_rear_brake,
             "updated_at": self.updated_at
         }

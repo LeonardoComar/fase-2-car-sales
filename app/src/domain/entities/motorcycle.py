@@ -1,6 +1,7 @@
 from typing import Optional
 from datetime import datetime
 from dataclasses import dataclass
+from decimal import Decimal
 
 from src.domain.entities.motor_vehicle import MotorVehicle
 from src.domain.exceptions import ValidationError, BusinessRuleError
@@ -21,44 +22,47 @@ class Motorcycle:
     """
     
     motor_vehicle: MotorVehicle
-    motorcycle_type: str  # "Street", "Sport", "Cruiser", "Adventure", "Touring", "Scooter", "Custom"
-    cylinder_capacity: int  # em cc
-    has_abs: bool = False
-    has_traction_control: bool = False
-    seat_height: Optional[int] = None  # em cm
-    dry_weight: Optional[int] = None  # em kg
-    fuel_capacity: Optional[float] = None  # em litros
+    # Campos que realmente existem na tabela motorcycles
+    starter: Optional[str] = None
+    fuel_system: Optional[str] = None
+    engine_displacement: Optional[int] = None  # Cilindrada em cc
+    cooling: Optional[str] = None
+    style: Optional[str] = None  # Tipo/estilo da motocicleta
+    engine_type: Optional[str] = None
+    gears: Optional[int] = None
+    front_rear_brake: Optional[str] = None
     id: Optional[int] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     
-    # Tipos válidos de motocicleta
-    VALID_MOTORCYCLE_TYPES = [
+    # Tipos válidos de estilo (baseado no campo 'style' da tabela)
+    VALID_STYLES = [
         "Street", "Sport", "Cruiser", "Adventure", 
-        "Touring", "Scooter", "Custom", "Trail"
+        "Touring", "Scooter", "Custom", "Trail", "Naked"
     ]
     
     @classmethod
     def create_complete_motorcycle(
         cls,
         # Dados do MotorVehicle
-        brand: str,
         model: str,
-        year: int,
+        year: str,
         price: float,
         mileage: int,
         fuel_type: str,
-        engine_power: str,
         color: str,
+        city: Optional[str] = None,
+        additional_description: Optional[str] = None,
+        status: Optional[str] = None,
         # Dados específicos da Motorcycle
-        motorcycle_type: str,
-        cylinder_capacity: int,
-        description: Optional[str] = None,
-        has_abs: bool = False,
-        has_traction_control: bool = False,
-        seat_height: Optional[int] = None,
-        dry_weight: Optional[int] = None,
-        fuel_capacity: Optional[float] = None
+        starter: Optional[str] = None,
+        fuel_system: Optional[str] = None,
+        engine_displacement: Optional[int] = None,
+        cooling: Optional[str] = None,
+        style: Optional[str] = None,
+        engine_type: Optional[str] = None,
+        gears: Optional[int] = None,
+        front_rear_brake: Optional[str] = None
     ) -> "Motorcycle":
         """
         Método factory para criar uma motocicleta completa.
@@ -75,27 +79,28 @@ class Motorcycle:
         """
         # Criar o motor vehicle
         motor_vehicle = MotorVehicle.create_motor_vehicle(
-            brand=brand,
             model=model,
             year=year,
-            price=price,
             mileage=mileage,
             fuel_type=fuel_type,
-            engine_power=engine_power,
             color=color,
-            description=description
+            city=city or "",
+            price=Decimal(str(price)),
+            additional_description=additional_description,
+            status=status
         )
         
         # Criar a motocicleta
         motorcycle = cls(
             motor_vehicle=motor_vehicle,
-            motorcycle_type=motorcycle_type,
-            cylinder_capacity=cylinder_capacity,
-            has_abs=has_abs,
-            has_traction_control=has_traction_control,
-            seat_height=seat_height,
-            dry_weight=dry_weight,
-            fuel_capacity=fuel_capacity
+            starter=starter,
+            fuel_system=fuel_system,
+            engine_displacement=engine_displacement,
+            cooling=cooling,
+            style=style,
+            engine_type=engine_type,
+            gears=gears,
+            front_rear_brake=front_rear_brake
         )
         
         # Validar dados específicos da motocicleta
@@ -106,13 +111,14 @@ class Motorcycle:
     
     def update_motorcycle_data(
         self,
-        motorcycle_type: Optional[str] = None,
-        cylinder_capacity: Optional[int] = None,
-        has_abs: Optional[bool] = None,
-        has_traction_control: Optional[bool] = None,
-        seat_height: Optional[int] = None,
-        dry_weight: Optional[int] = None,
-        fuel_capacity: Optional[float] = None
+        style: Optional[str] = None,
+        starter: Optional[str] = None,
+        fuel_system: Optional[str] = None,
+        engine_displacement: Optional[int] = None,
+        cooling: Optional[str] = None,
+        engine_type: Optional[str] = None,
+        gears: Optional[int] = None,
+        front_rear_brake: Optional[str] = None
     ) -> None:
         """
         Atualiza dados específicos da motocicleta.
@@ -124,26 +130,29 @@ class Motorcycle:
             ValidationError: Se os dados não forem válidos
             BusinessRuleError: Se as regras de negócio não forem atendidas
         """
-        if motorcycle_type is not None:
-            self.motorcycle_type = motorcycle_type
+        if style is not None:
+            self.style = style
         
-        if cylinder_capacity is not None:
-            self.cylinder_capacity = cylinder_capacity
+        if starter is not None:
+            self.starter = starter
         
-        if has_abs is not None:
-            self.has_abs = has_abs
+        if fuel_system is not None:
+            self.fuel_system = fuel_system
         
-        if has_traction_control is not None:
-            self.has_traction_control = has_traction_control
+        if engine_displacement is not None:
+            self.engine_displacement = engine_displacement
         
-        if seat_height is not None:
-            self.seat_height = seat_height
+        if cooling is not None:
+            self.cooling = cooling
         
-        if dry_weight is not None:
-            self.dry_weight = dry_weight
+        if engine_type is not None:
+            self.engine_type = engine_type
         
-        if fuel_capacity is not None:
-            self.fuel_capacity = fuel_capacity
+        if gears is not None:
+            self.gears = gears
+        
+        if front_rear_brake is not None:
+            self.front_rear_brake = front_rear_brake
         
         # Revalidar após atualização
         self._validate_motorcycle_data()
@@ -157,43 +166,28 @@ class Motorcycle:
         Raises:
             ValidationError: Se algum dado for inválido
         """
-        # Validar tipo de motocicleta
-        if not self.motorcycle_type or self.motorcycle_type not in self.VALID_MOTORCYCLE_TYPES:
+        # Validar estilo da motocicleta
+        if not self.style or self.style not in self.VALID_STYLES:
             raise ValidationError(
-                f"Tipo de motocicleta deve ser um dos seguintes: {', '.join(self.VALID_MOTORCYCLE_TYPES)}",
-                "motorcycle_type"
+                f"Estilo de motocicleta deve ser um dos seguintes: {', '.join(self.VALID_STYLES)}",
+                "style"
             )
         
-        # Validar cilindrada
-        if not isinstance(self.cylinder_capacity, int) or self.cylinder_capacity <= 0:
-            raise ValidationError("Cilindrada deve ser um número inteiro positivo", "cylinder_capacity")
-        
-        if self.cylinder_capacity < 50 or self.cylinder_capacity > 2500:
-            raise ValidationError("Cilindrada deve estar entre 50cc e 2500cc", "cylinder_capacity")
-        
-        # Validar altura do assento (se fornecida)
-        if self.seat_height is not None:
-            if not isinstance(self.seat_height, int) or self.seat_height <= 0:
-                raise ValidationError("Altura do assento deve ser um número inteiro positivo", "seat_height")
+        # Validar cilindrada (se fornecida)
+        if self.engine_displacement is not None:
+            if not isinstance(self.engine_displacement, int) or self.engine_displacement <= 0:
+                raise ValidationError("Cilindrada deve ser um número inteiro positivo", "engine_displacement")
             
-            if self.seat_height < 60 or self.seat_height > 120:
-                raise ValidationError("Altura do assento deve estar entre 60cm e 120cm", "seat_height")
+            if self.engine_displacement < 50 or self.engine_displacement > 2500:
+                raise ValidationError("Cilindrada deve estar entre 50cc e 2500cc", "engine_displacement")
         
-        # Validar peso seco (se fornecido)
-        if self.dry_weight is not None:
-            if not isinstance(self.dry_weight, int) or self.dry_weight <= 0:
-                raise ValidationError("Peso seco deve ser um número inteiro positivo", "dry_weight")
+        # Validar número de marchas (se fornecido)
+        if self.gears is not None:
+            if not isinstance(self.gears, int) or self.gears <= 0:
+                raise ValidationError("Número de marchas deve ser um número inteiro positivo", "gears")
             
-            if self.dry_weight < 50 or self.dry_weight > 500:
-                raise ValidationError("Peso seco deve estar entre 50kg e 500kg", "dry_weight")
-        
-        # Validar capacidade do tanque (se fornecida)
-        if self.fuel_capacity is not None:
-            if not isinstance(self.fuel_capacity, (int, float)) or self.fuel_capacity <= 0:
-                raise ValidationError("Capacidade do tanque deve ser um número positivo", "fuel_capacity")
-            
-            if self.fuel_capacity < 1 or self.fuel_capacity > 50:
-                raise ValidationError("Capacidade do tanque deve estar entre 1L e 50L", "fuel_capacity")
+            if self.gears < 1 or self.gears > 7:
+                raise ValidationError("Número de marchas deve estar entre 1 e 7", "gears")
     
     def _apply_business_rules(self) -> None:
         """
@@ -202,25 +196,8 @@ class Motorcycle:
         Raises:
             BusinessRuleError: Se alguma regra de negócio for violada
         """
-        # Regra: Motocicletas sport normalmente têm ABS
-        if self.motorcycle_type == "Sport" and self.cylinder_capacity > 600 and not self.has_abs:
-            # Apenas um aviso, não um erro bloqueante
-            pass
-        
-        # Regra: Scooters normalmente têm baixa cilindrada
-        if self.motorcycle_type == "Scooter" and self.cylinder_capacity > 250:
-            raise BusinessRuleError(
-                "Scooters normalmente têm cilindrada até 250cc",
-                "scooter_cylinder_capacity"
-            )
-        
-        # Regra: Motocicletas de alta cilindrada devem ter controle de tração
-        if self.cylinder_capacity > 1000 and not self.has_traction_control:
-            # Apenas um aviso para motocicletas potentes
-            pass
-        
         # Regra: Verificar combustível adequado para o tipo
-        if self.motorcycle_type == "Sport" and self.motor_vehicle.fuel_type not in ["Gasolina", "Etanol"]:
+        if self.style == "Sport" and self.motor_vehicle.fuel_type not in ["Gasolina", "Etanol"]:
             raise BusinessRuleError(
                 "Motocicletas sport normalmente usam gasolina ou etanol",
                 "sport_fuel_type"
@@ -243,29 +220,9 @@ class Motorcycle:
             bool: True se for de alta performance
         """
         return (
-            self.motorcycle_type in ["Sport", "Adventure"] and
-            self.cylinder_capacity > 600 and
-            self.has_abs and
-            self.has_traction_control
+            self.style in ["Sport", "Adventure"] and
+            self.engine_displacement and self.engine_displacement > 600
         )
-    
-    def get_power_to_weight_ratio(self) -> Optional[float]:
-        """
-        Calcula a relação potência/peso se os dados estiverem disponíveis.
-        
-        Returns:
-            Optional[float]: Relação potência/peso ou None
-        """
-        if not self.dry_weight or not self.motor_vehicle.engine_power:
-            return None
-        
-        try:
-            # Extrair número da potência (assumindo formato como "150 cv")
-            power_str = self.motor_vehicle.engine_power.lower().replace("cv", "").replace("hp", "").strip()
-            power = float(power_str)
-            return round(power / self.dry_weight, 2)
-        except (ValueError, ZeroDivisionError):
-            return None
     
     def get_display_name(self) -> str:
         """
@@ -274,7 +231,8 @@ class Motorcycle:
         Returns:
             str: Nome formatado para exibição
         """
-        return f"{self.motor_vehicle.brand} {self.motor_vehicle.model} {self.motor_vehicle.year} - {self.cylinder_capacity}cc"
+        displacement_info = f" - {self.engine_displacement}cc" if self.engine_displacement else ""
+        return f"{self.motor_vehicle.model} {self.motor_vehicle.year}{displacement_info}"
     
     def __str__(self) -> str:
         return self.get_display_name()

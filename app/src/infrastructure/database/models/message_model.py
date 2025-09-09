@@ -1,8 +1,6 @@
 from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, ForeignKey
-from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
-
-Base = declarative_base()
+from src.infrastructure.database.connection import Base
 
 
 class MessageModel(Base):
