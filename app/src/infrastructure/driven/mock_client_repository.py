@@ -12,12 +12,12 @@ Aplicando princípios SOLID:
 - DIP: Implementa abstração definida no domínio
 """
 
-from typing import List, Optional, Dict, Any, Tuple
-from uuid import UUID, uuid4
-from datetime import datetime, date
+from typing import List, Optional, Dict, Any
+from datetime import datetime
 import asyncio
 
 from src.domain.entities.client import Client
+from src.domain.entities.address import Address
 from src.domain.ports.client_repository import ClientRepository
 
 
@@ -30,521 +30,303 @@ class MockClientRepository(ClientRepository):
     """
     
     def __init__(self):
-        """Inicializa o repositório com dados em memória."""
-        self._clients: Dict[UUID, Client] = {}
-        self._email_index: Dict[str, UUID] = {}
-        self._cpf_index: Dict[str, UUID] = {}
-        self._next_id = 1
+        """Inicializa o repositório mock com dados em memória."""
+        self._clients: Dict[int, Client] = {}
+        self._addresses: Dict[int, Address] = {}
+        self._next_client_id = 1
+        self._next_address_id = 1
         
-        # Simular alguns clientes para desenvolvimento
-        self._seed_data()
+        # Dados iniciais para demonstração
+        self._initialize_mock_data()
     
-    def _seed_data(self):
-        """Popula dados iniciais para desenvolvimento."""
-        clients_data = [
-            {
-                "name": "João Silva",
-                "email": "joao.silva@email.com",
-                "phone": "11987654321",
-                "cpf": "12345678901",
-                "birth_date": date(1985, 3, 15),
-                "address": "Rua das Flores, 123",
-                "city": "São Paulo",
-                "state": "SP",
-                "zip_code": "01234567",
-                "status": "Ativo",
-                "notes": "Cliente VIP, comprador frequente"
-            },
-            {
-                "name": "Maria Santos",
-                "email": "maria.santos@email.com",
-                "phone": "11976543210",
-                "cpf": "98765432109",
-                "birth_date": date(1990, 7, 22),
-                "address": "Av. Principal, 456",
-                "city": "Rio de Janeiro",
-                "state": "RJ",
-                "zip_code": "20123456",
-                "status": "Ativo",
-                "notes": "Interessada em carros esportivos"
-            },
-            {
-                "name": "Carlos Oliveira",
-                "email": "carlos.oliveira@email.com",
-                "phone": "11965432109",
-                "cpf": "11122233344",
-                "birth_date": date(1975, 12, 8),
-                "address": "Rua Comercial, 789",
-                "city": "Belo Horizonte",
-                "state": "MG",
-                "zip_code": "30123456",
-                "status": "Inativo",
-                "notes": "Cliente antigo, última compra em 2020"
-            }
-        ]
+    def _initialize_mock_data(self):
+        """Inicializa dados mock para demonstração."""
+        # Endereços mock
+        address1 = Address(
+            id=1,
+            street="Rua das Flores, 123",
+            city="São Paulo",
+            state="SP",
+            zip_code="01234-567",
+            country="Brasil",
+            created_at=datetime.now(),
+            updated_at=datetime.now()
+        )
+        self._addresses[1] = address1
         
-        for data in clients_data:
-            client = Client.create_client(**data)
-            self._clients[client.id] = client
-            self._email_index[client.email] = client.id
-            self._cpf_index[client.cpf] = client.id
+        # Clientes mock
+        client1 = Client(
+            id=1,
+            name="João Silva",
+            email="joao.silva@email.com",
+            phone="(11) 99999-9999",
+            cpf="123.456.789-00",
+            address_id=1,
+            created_at=datetime.now(),
+            updated_at=datetime.now()
+        )
+        self._clients[1] = client1
+        
+        client2 = Client(
+            id=2,
+            name="Maria Santos",
+            email="maria.santos@email.com",
+            phone="(11) 88888-8888",
+            cpf="987.654.321-00",
+            address_id=None,
+            created_at=datetime.now(),
+            updated_at=datetime.now()
+        )
+        self._clients[2] = client2
+        
+        self._next_client_id = 3
+        self._next_address_id = 2
     
-    async def save(self, client: Client) -> Client:
+    async def create(self, client: Client, address: Optional[Address] = None) -> Client:
         """
-        Salva um cliente no repositório.
+        Cria um novo cliente no repositório mock.
         
         Args:
-            client: Cliente a ser salvo
+            client: Dados do cliente a ser criado
+            address: Dados do endereço (opcional)
             
         Returns:
-            Cliente salvo com timestamps atualizados
+            Client: O cliente criado com ID gerado
         """
-        await asyncio.sleep(0.01)  # Simular latência
+        # Simular latência de rede
+        await asyncio.sleep(0.1)
         
-        # Atualizar timestamp
-        if client.id not in self._clients:
-            client.created_at = datetime.now()
+        # Verificar se email já existe
+        existing_email = await self.find_by_email(client.email)
+        if existing_email:
+            raise ValueError(f"Email '{client.email}' já está em uso")
+        
+        # Verificar se CPF já existe
+        existing_cpf = await self.find_by_cpf(client.cpf)
+        if existing_cpf:
+            raise ValueError(f"CPF '{client.cpf}' já está em uso")
+        
+        # Criar endereço se fornecido
+        address_id = None
+        if address:
+            address.id = self._next_address_id
+            address.created_at = datetime.now()
+            address.updated_at = datetime.now()
+            self._addresses[self._next_address_id] = address
+            address_id = self._next_address_id
+            self._next_address_id += 1
+        
+        # Criar cliente
+        client.id = self._next_client_id
+        client.address_id = address_id
+        client.created_at = datetime.now()
         client.updated_at = datetime.now()
         
-        # Salvar
-        self._clients[client.id] = client
-        
-        # Atualizar índices
-        self._email_index[client.email] = client.id
-        self._cpf_index[client.cpf] = client.id
+        self._clients[self._next_client_id] = client
+        self._next_client_id += 1
         
         return client
     
-    async def find_by_id(self, client_id: UUID) -> Optional[Client]:
+    async def find_by_id(self, client_id: int) -> Optional[Client]:
         """
-        Busca um cliente por ID.
+        Busca um cliente pelo ID.
         
         Args:
             client_id: ID do cliente
             
         Returns:
-            Cliente encontrado ou None
+            Optional[Client]: O cliente encontrado ou None
         """
-        await asyncio.sleep(0.01)  # Simular latência
+        # Simular latência de rede
+        await asyncio.sleep(0.05)
+        
         return self._clients.get(client_id)
     
     async def find_by_email(self, email: str) -> Optional[Client]:
         """
-        Busca um cliente por email.
+        Busca um cliente pelo email.
         
         Args:
             email: Email do cliente
             
         Returns:
-            Cliente encontrado ou None
+            Optional[Client]: O cliente encontrado ou None
         """
-        await asyncio.sleep(0.01)  # Simular latência
+        # Simular latência de rede
+        await asyncio.sleep(0.05)
         
-        client_id = self._email_index.get(email)
-        if client_id:
-            return self._clients.get(client_id)
-        
+        email_lower = email.lower()
+        for client in self._clients.values():
+            if client.email.lower() == email_lower:
+                return client
         return None
     
     async def find_by_cpf(self, cpf: str) -> Optional[Client]:
         """
-        Busca um cliente por CPF.
+        Busca um cliente pelo CPF.
         
         Args:
             cpf: CPF do cliente
             
         Returns:
-            Cliente encontrado ou None
+            Optional[Client]: O cliente encontrado ou None
         """
-        await asyncio.sleep(0.01)  # Simular latência
+        # Simular latência de rede
+        await asyncio.sleep(0.05)
         
-        # Limpar CPF (remover pontos e hífens)
-        clean_cpf = ''.join(filter(str.isdigit, cpf))
-        
-        client_id = self._cpf_index.get(clean_cpf)
-        if client_id:
-            return self._clients.get(client_id)
-        
+        for client in self._clients.values():
+            if client.cpf == cpf:
+                return client
         return None
     
-    async def find_all(self) -> List[Client]:
+    async def update(self, client_id: int, client: Client, address: Optional[Address] = None) -> Optional[Client]:
         """
-        Busca todos os clientes.
-        
-        Returns:
-            Lista de todos os clientes
-        """
-        await asyncio.sleep(0.01)  # Simular latência
-        return list(self._clients.values())
-    
-    async def find_by_status(self, status: str) -> List[Client]:
-        """
-        Busca clientes por status.
+        Atualiza um cliente existente.
         
         Args:
-            status: Status dos clientes
+            client_id: ID do cliente
+            client: Dados atualizados do cliente
+            address: Dados atualizados do endereço (opcional)
             
         Returns:
-            Lista de clientes com o status especificado
+            Optional[Client]: O cliente atualizado ou None se não encontrado
         """
-        await asyncio.sleep(0.01)  # Simular latência
+        # Simular latência de rede
+        await asyncio.sleep(0.1)
         
-        return [
-            client for client in self._clients.values()
-            if client.status == status
-        ]
+        if client_id not in self._clients:
+            return None
+        
+        existing_client = self._clients[client_id]
+        
+        # Verificar conflitos de email (se email foi alterado)
+        if client.email != existing_client.email:
+            existing_email = await self.find_by_email(client.email)
+            if existing_email:
+                raise ValueError(f"Email '{client.email}' já está em uso")
+        
+        # Verificar conflitos de CPF (se CPF foi alterado)
+        if client.cpf != existing_client.cpf:
+            existing_cpf = await self.find_by_cpf(client.cpf)
+            if existing_cpf:
+                raise ValueError(f"CPF '{client.cpf}' já está em uso")
+        
+        # Atualizar endereço se fornecido
+        if address:
+            if existing_client.address_id:
+                # Atualizar endereço existente
+                address.id = existing_client.address_id
+                address.updated_at = datetime.now()
+                # Manter created_at original se existir
+                if existing_client.address_id in self._addresses:
+                    address.created_at = self._addresses[existing_client.address_id].created_at
+                else:
+                    address.created_at = datetime.now()
+                self._addresses[existing_client.address_id] = address
+            else:
+                # Criar novo endereço
+                address.id = self._next_address_id
+                address.created_at = datetime.now()
+                address.updated_at = datetime.now()
+                self._addresses[self._next_address_id] = address
+                client.address_id = self._next_address_id
+                self._next_address_id += 1
+        
+        # Atualizar cliente
+        client.id = client_id
+        client.updated_at = datetime.now()
+        # Manter created_at original
+        client.created_at = existing_client.created_at
+        
+        self._clients[client_id] = client
+        
+        return client
     
-    async def find_by_city(self, city: str) -> List[Client]:
+    async def delete(self, client_id: int) -> bool:
         """
-        Busca clientes por cidade.
+        Remove um cliente do banco de dados.
         
         Args:
-            city: Cidade dos clientes
+            client_id: ID do cliente
             
         Returns:
-            Lista de clientes da cidade especificada
+            bool: True se removido com sucesso, False caso contrário
         """
-        await asyncio.sleep(0.01)  # Simular latência
+        # Simular latência de rede
+        await asyncio.sleep(0.1)
         
-        return [
-            client for client in self._clients.values()
-            if client.city and client.city.lower() == city.lower()
-        ]
+        if client_id in self._clients:
+            client = self._clients[client_id]
+            
+            # Remover endereço associado se existir
+            if client.address_id and client.address_id in self._addresses:
+                del self._addresses[client.address_id]
+            
+            # Remover cliente
+            del self._clients[client_id]
+            return True
+        
+        return False
     
-    async def find_by_state(self, state: str) -> List[Client]:
+    async def find_all(self, skip: int = 0, limit: int = 100) -> List[Client]:
         """
-        Busca clientes por estado.
+        Busca todos os clientes com paginação.
         
         Args:
-            state: Estado dos clientes
+            skip: Número de registros para pular
+            limit: Número máximo de registros para retornar
             
         Returns:
-            Lista de clientes do estado especificado
+            List[Client]: Lista de clientes encontrados
         """
-        await asyncio.sleep(0.01)  # Simular latência
+        # Simular latência de rede
+        await asyncio.sleep(0.05)
         
-        return [
-            client for client in self._clients.values()
-            if client.state and client.state.upper() == state.upper()
-        ]
+        all_clients = list(self._clients.values())
+        # Ordenar por ID para consistência
+        all_clients.sort(key=lambda x: x.id or 0)
+        
+        # Aplicar paginação
+        end_index = skip + limit
+        return all_clients[skip:end_index]
     
-    async def search_by_name(self, name: str) -> List[Client]:
+    async def find_by_name(self, name: str, skip: int = 0, limit: int = 100) -> List[Client]:
         """
         Busca clientes por nome (busca parcial).
         
         Args:
-            name: Nome ou parte do nome
+            name: Nome ou parte do nome para buscar
+            skip: Número de registros para pular
+            limit: Número máximo de registros para retornar
             
         Returns:
-            Lista de clientes que contêm o nome especificado
+            List[Client]: Lista de clientes encontrados
         """
-        await asyncio.sleep(0.01)  # Simular latência
+        # Simular latência de rede
+        await asyncio.sleep(0.05)
         
         name_lower = name.lower()
+        matching_clients = []
         
-        return [
-            client for client in self._clients.values()
-            if name_lower in client.name.lower()
-        ]
-    
-    async def find_vip_clients(self) -> List[Client]:
-        """
-        Busca clientes VIP.
+        for client in self._clients.values():
+            if name_lower in client.name.lower():
+                matching_clients.append(client)
         
-        Returns:
-            Lista de clientes VIP
-        """
-        await asyncio.sleep(0.01)  # Simular latência
-        
-        return [
-            client for client in self._clients.values()
-            if client.is_vip()
-        ]
-    
-    async def find_by_age_range(self, min_age: int, max_age: int) -> List[Client]:
-        """
-        Busca clientes por faixa etária.
-        
-        Args:
-            min_age: Idade mínima
-            max_age: Idade máxima
-            
-        Returns:
-            Lista de clientes na faixa etária especificada
-        """
-        await asyncio.sleep(0.01)  # Simular latência
-        
-        return [
-            client for client in self._clients.values()
-            if client.birth_date and min_age <= client.get_age() <= max_age
-        ]
-    
-    async def find_with_filters(
-        self,
-        filters: Dict[str, Any],
-        order_by: str = "name",
-        order_direction: str = "asc",
-        skip: int = 0,
-        limit: int = 50
-    ) -> Tuple[List[Client], int]:
-        """
-        Busca clientes com filtros e paginação.
-        
-        Args:
-            filters: Filtros a aplicar
-            order_by: Campo para ordenação
-            order_direction: Direção da ordenação
-            skip: Registros a pular
-            limit: Limite de registros
-            
-        Returns:
-            Tupla com lista de clientes e total
-        """
-        await asyncio.sleep(0.02)  # Simular latência de query complexa
-        
-        # Aplicar filtros
-        filtered_clients = list(self._clients.values())
-        
-        if 'name' in filters and filters['name']:
-            name_filter = filters['name'].lower()
-            filtered_clients = [
-                client for client in filtered_clients
-                if name_filter in client.name.lower()
-            ]
-        
-        if 'email' in filters and filters['email']:
-            email_filter = filters['email'].lower()
-            filtered_clients = [
-                client for client in filtered_clients
-                if email_filter in client.email.lower()
-            ]
-        
-        if 'status' in filters and filters['status']:
-            filtered_clients = [
-                client for client in filtered_clients
-                if client.status == filters['status']
-            ]
-        
-        if 'city' in filters and filters['city']:
-            city_filter = filters['city'].lower()
-            filtered_clients = [
-                client for client in filtered_clients
-                if client.city and city_filter in client.city.lower()
-            ]
-        
-        if 'state' in filters and filters['state']:
-            state_filter = filters['state'].upper()
-            filtered_clients = [
-                client for client in filtered_clients
-                if client.state and client.state.upper() == state_filter
-            ]
-        
-        if 'min_age' in filters and filters['min_age']:
-            filtered_clients = [
-                client for client in filtered_clients
-                if client.birth_date and client.get_age() >= filters['min_age']
-            ]
-        
-        if 'max_age' in filters and filters['max_age']:
-            filtered_clients = [
-                client for client in filtered_clients
-                if client.birth_date and client.get_age() <= filters['max_age']
-            ]
-        
-        if 'is_vip' in filters and filters['is_vip'] is not None:
-            filtered_clients = [
-                client for client in filtered_clients
-                if client.is_vip() == filters['is_vip']
-            ]
-        
-        total = len(filtered_clients)
-        
-        # Aplicar ordenação
-        if order_by == "name":
-            filtered_clients.sort(key=lambda c: c.name, reverse=(order_direction == "desc"))
-        elif order_by == "email":
-            filtered_clients.sort(key=lambda c: c.email, reverse=(order_direction == "desc"))
-        elif order_by == "created_at":
-            filtered_clients.sort(key=lambda c: c.created_at, reverse=(order_direction == "desc"))
-        elif order_by == "updated_at":
-            filtered_clients.sort(key=lambda c: c.updated_at, reverse=(order_direction == "desc"))
-        elif order_by == "status":
-            filtered_clients.sort(key=lambda c: c.status, reverse=(order_direction == "desc"))
-        elif order_by == "city":
-            filtered_clients.sort(key=lambda c: c.city or "", reverse=(order_direction == "desc"))
-        elif order_by == "age":
-            filtered_clients.sort(
-                key=lambda c: c.get_age() if c.birth_date else 0, 
-                reverse=(order_direction == "desc")
-            )
+        # Ordenar por ID para consistência
+        matching_clients.sort(key=lambda x: x.id or 0)
         
         # Aplicar paginação
-        paginated_clients = filtered_clients[skip:skip + limit]
-        
-        return paginated_clients, total
+        end_index = skip + limit
+        return matching_clients[skip:end_index]
     
-    async def count_all(self) -> int:
+    def get_address_by_id(self, address_id: int) -> Optional[Address]:
         """
-        Conta total de clientes.
-        
-        Returns:
-            Número total de clientes
-        """
-        await asyncio.sleep(0.01)  # Simular latência
-        return len(self._clients)
-    
-    async def count_by_status(self, status: str) -> int:
-        """
-        Conta clientes por status.
+        Busca um endereço pelo ID (método auxiliar).
         
         Args:
-            status: Status dos clientes
+            address_id: ID do endereço
             
         Returns:
-            Número de clientes com o status especificado
+            Optional[Address]: O endereço encontrado ou None
         """
-        await asyncio.sleep(0.01)  # Simular latência
-        
-        return sum(
-            1 for client in self._clients.values()
-            if client.status == status
-        )
-    
-    async def get_statistics(self) -> Dict[str, Any]:
-        """
-        Obtém estatísticas dos clientes.
-        
-        Returns:
-            Dicionário com estatísticas
-        """
-        await asyncio.sleep(0.05)  # Simular query complexa
-        
-        total_clients = len(self._clients)
-        
-        if total_clients == 0:
-            return {
-                "total_clients": 0,
-                "active_clients": 0,
-                "inactive_clients": 0,
-                "vip_clients": 0,
-                "average_age": 0,
-                "clients_by_state": {},
-                "clients_by_city": {},
-                "age_distribution": {}
-            }
-        
-        # Contar por status
-        active_clients = sum(1 for c in self._clients.values() if c.status == "Ativo")
-        inactive_clients = total_clients - active_clients
-        
-        # Contar VIPs
-        vip_clients = sum(1 for c in self._clients.values() if c.is_vip())
-        
-        # Calcular idade média
-        ages = [c.get_age() for c in self._clients.values() if c.birth_date]
-        average_age = sum(ages) / len(ages) if ages else 0
-        
-        # Distribuição por estado
-        clients_by_state = {}
-        for client in self._clients.values():
-            if client.state:
-                clients_by_state[client.state] = clients_by_state.get(client.state, 0) + 1
-        
-        # Distribuição por cidade
-        clients_by_city = {}
-        for client in self._clients.values():
-            if client.city:
-                clients_by_city[client.city] = clients_by_city.get(client.city, 0) + 1
-        
-        # Distribuição por faixa etária
-        age_distribution = {"18-25": 0, "26-35": 0, "36-45": 0, "46-55": 0, "56+": 0}
-        for client in self._clients.values():
-            if client.birth_date:
-                age = client.get_age()
-                if age <= 25:
-                    age_distribution["18-25"] += 1
-                elif age <= 35:
-                    age_distribution["26-35"] += 1
-                elif age <= 45:
-                    age_distribution["36-45"] += 1
-                elif age <= 55:
-                    age_distribution["46-55"] += 1
-                else:
-                    age_distribution["56+"] += 1
-        
-        return {
-            "total_clients": total_clients,
-            "active_clients": active_clients,
-            "inactive_clients": inactive_clients,
-            "vip_clients": vip_clients,
-            "average_age": round(average_age, 1),
-            "clients_by_state": clients_by_state,
-            "clients_by_city": clients_by_city,
-            "age_distribution": age_distribution
-        }
-    
-    async def delete(self, client_id: UUID) -> bool:
-        """
-        Exclui um cliente.
-        
-        Args:
-            client_id: ID do cliente
-            
-        Returns:
-            True se excluído com sucesso
-        """
-        await asyncio.sleep(0.01)  # Simular latência
-        
-        if client_id not in self._clients:
-            return False
-        
-        client = self._clients[client_id]
-        
-        # Remover dos índices
-        if client.email in self._email_index:
-            del self._email_index[client.email]
-        
-        if client.cpf in self._cpf_index:
-            del self._cpf_index[client.cpf]
-        
-        # Remover cliente
-        del self._clients[client_id]
-        
-        return True
-    
-    async def exists(self, client_id: UUID) -> bool:
-        """
-        Verifica se um cliente existe.
-        
-        Args:
-            client_id: ID do cliente
-            
-        Returns:
-            True se existe
-        """
-        await asyncio.sleep(0.01)  # Simular latência
-        return client_id in self._clients
-    
-    async def bulk_update_status(self, client_ids: List[UUID], status: str) -> int:
-        """
-        Atualiza status de múltiplos clientes.
-        
-        Args:
-            client_ids: Lista de IDs dos clientes
-            status: Novo status
-            
-        Returns:
-            Número de clientes atualizados
-        """
-        await asyncio.sleep(0.02)  # Simular operação em lote
-        
-        updated_count = 0
-        
-        for client_id in client_ids:
-            if client_id in self._clients:
-                client = self._clients[client_id]
-                client.update_status(status)
-                client.updated_at = datetime.now()
-                updated_count += 1
-        
-        return updated_count
+        return self._addresses.get(address_id)

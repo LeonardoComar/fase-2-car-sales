@@ -1,211 +1,120 @@
-from typing import List, Optional
+"""
+Use Case para Listar Clientes - Application Layer
 
-from src.application.dtos.client_dto import ClientSearchDto, ClientResponseDto
+Responsável por listar clientes com filtros e paginação.
+
+Aplicando princípios SOLID:
+- SRP: Responsável apenas pela listagem de clientes
+- OCP: Extensível para novos filtros sem modificar código existente
+- LSP: Pode ser substituído por outras implementações
+- ISP: Interface específica para listagem
+- DIP: Depende de abstrações (repositórios) não de implementações
+"""
+
+from typing import List, Optional
 from src.domain.entities.client import Client
 from src.domain.ports.client_repository import ClientRepository
-from src.domain.exceptions import ValidationError
+from src.application.dtos.client_dto import ClientListDto
 
 
 class ListClientsUseCase:
     """
-    Use case para listagem de clientes com filtros e paginação.
+    Use Case para listagem de clientes com filtros.
     
-    Aplicando o princípio Single Responsibility Principle (SRP) - 
-    responsável apenas pela listagem e busca de clientes.
-    
-    Aplicando o princípio Dependency Inversion Principle (DIP) - 
-    depende da abstração ClientRepository, não da implementação.
+    Coordena a busca de clientes aplicando filtros e paginação.
     """
     
     def __init__(self, client_repository: ClientRepository):
-        self.client_repository = client_repository
+        """
+        Inicializa o use case com as dependências necessárias.
+        
+        Args:
+            client_repository: Repositório de clientes
+        """
+        self._client_repository = client_repository
     
-    async def execute(self, search_criteria: ClientSearchDto) -> List[ClientResponseDto]:
+    async def execute(self, skip: int = 0, limit: int = 100, 
+                     name: Optional[str] = None, cpf: Optional[str] = None) -> List[ClientListDto]:
         """
         Executa a listagem de clientes com filtros.
         
         Args:
-            search_criteria: Critérios de busca e filtros
+            skip: Número de registros para pular
+            limit: Número máximo de registros para retornar
+            name: Nome ou parte do nome para filtrar (opcional)
+            cpf: CPF exato para buscar (opcional)
             
         Returns:
-            List[ClientResponseDto]: Lista de clientes encontrados
+            List[ClientListDto]: Lista de clientes
             
         Raises:
-            ValidationError: Se os critérios de busca forem inválidos
+            ValueError: Se parâmetros inválidos forem fornecidos
+            Exception: Se houver erro na busca
         """
         try:
-            # Validar critérios de busca
-            self._validate_search_criteria(search_criteria)
+            # Validar parâmetros
+            if skip < 0:
+                raise ValueError("Skip deve ser maior ou igual a zero")
+            if limit <= 0 or limit > 500:
+                raise ValueError("Limit deve estar entre 1 e 500")
             
-            # Preparar parâmetros de busca
-            search_params = self._prepare_search_params(search_criteria)
+            # Validar que apenas um tipo de busca seja usado
+            search_params = [name, cpf]
+            provided_params = [param for param in search_params if param is not None]
+            if len(provided_params) > 1:
+                raise ValueError("Não é possível usar name e cpf simultaneamente")
             
-            # Buscar no repositório
-            clients = await self.client_repository.find_by_criteria(**search_params)
+            clients = []
             
-            # Converter para DTOs de resposta
-            return [self._to_response_dto(client) for client in clients]
+            # Aplicar filtros específicos
+            if cpf:
+                # Busca por CPF exato
+                client = await self._client_repository.find_by_cpf(cpf)
+                if client:
+                    clients = [client]
+                
+            elif name:
+                # Busca por nome
+                clients = await self._client_repository.find_by_name(name, skip, limit)
+            else:
+                # Busca geral
+                clients = await self._client_repository.find_all(skip, limit)
             
-        except ValidationError:
-            raise
+            # Converter para DTOs de listagem
+            list_dtos = []
+            for client in clients:
+                list_dto = await self._convert_to_list_dto(client)
+                list_dtos.append(list_dto)
+            
+            return list_dtos
+            
+        except ValueError as e:
+            raise e
         except Exception as e:
-            raise ValidationError(f"Erro durante busca de clientes: {str(e)}")
+            raise Exception(f"Erro ao listar clientes: {str(e)}")
     
-    def _validate_search_criteria(self, search_criteria: ClientSearchDto) -> None:
+    async def _convert_to_list_dto(self, client: Client) -> ClientListDto:
         """
-        Valida os critérios de busca.
+        Converte entidade Client para DTO de listagem.
         
         Args:
-            search_criteria: Critérios de busca
-            
-        Raises:
-            ValidationError: Se os critérios forem inválidos
-        """
-        # Validar limite de resultados
-        if search_criteria.limit and search_criteria.limit > 1000:
-            raise ValidationError("Limite máximo de 1000 resultados por consulta")
-        
-        # Validar offset
-        if search_criteria.offset and search_criteria.offset < 0:
-            raise ValidationError("Offset não pode ser negativo")
-        
-        # Validar idade mínima e máxima
-        if search_criteria.min_age and search_criteria.min_age < 0:
-            raise ValidationError("Idade mínima não pode ser negativa")
-        
-        if search_criteria.max_age and search_criteria.max_age > 120:
-            raise ValidationError("Idade máxima não pode ser superior a 120 anos")
-        
-        if (search_criteria.min_age and search_criteria.max_age and 
-            search_criteria.min_age > search_criteria.max_age):
-            raise ValidationError("Idade mínima não pode ser maior que idade máxima")
-    
-    def _prepare_search_params(self, search_criteria: ClientSearchDto) -> dict:
-        """
-        Prepara os parâmetros para busca no repositório.
-        
-        Args:
-            search_criteria: Critérios de busca
+            client: Entidade do cliente
             
         Returns:
-            dict: Parâmetros preparados para o repositório
+            ClientListDto: DTO de listagem
         """
-        params = {}
+        # Buscar endereço para obter cidade se disponível
+        city = None
+        if client.address_id:
+            address = await self._client_repository.get_address_by_id(client.address_id)
+            if address:
+                city = address.city
         
-        # Filtros de texto
-        if search_criteria.name:
-            params['name'] = search_criteria.name
-        
-        if search_criteria.email:
-            params['email'] = search_criteria.email
-        
-        if search_criteria.phone:
-            params['phone'] = search_criteria.phone
-        
-        if search_criteria.cpf:
-            params['cpf'] = self._clean_cpf(search_criteria.cpf)
-        
-        # Filtros de localização
-        if search_criteria.city:
-            params['city'] = search_criteria.city
-        
-        if search_criteria.state:
-            params['state'] = search_criteria.state
-        
-        if search_criteria.zip_code:
-            params['zip_code'] = self._clean_zip_code(search_criteria.zip_code)
-        
-        # Filtros de status
-        if search_criteria.status:
-            params['status'] = search_criteria.status
-        
-        if search_criteria.active_only is not None:
-            params['active_only'] = search_criteria.active_only
-        
-        # Filtros de idade
-        if search_criteria.min_age is not None:
-            params['min_age'] = search_criteria.min_age
-        
-        if search_criteria.max_age is not None:
-            params['max_age'] = search_criteria.max_age
-        
-        # Filtros especiais
-        if search_criteria.vip_only is not None:
-            params['vip_only'] = search_criteria.vip_only
-        
-        # Paginação
-        if search_criteria.limit is not None:
-            params['limit'] = search_criteria.limit
-        
-        if search_criteria.offset is not None:
-            params['offset'] = search_criteria.offset
-        
-        # Ordenação
-        if search_criteria.order_by:
-            params['order_by'] = search_criteria.order_by
-        
-        if search_criteria.order_direction:
-            params['order_direction'] = search_criteria.order_direction
-        
-        return params
-    
-    def _clean_cpf(self, cpf: str) -> str:
-        """
-        Remove formatação do CPF.
-        
-        Args:
-            cpf: CPF com ou sem formatação
-            
-        Returns:
-            str: CPF apenas com números
-        """
-        return ''.join(filter(str.isdigit, cpf))
-    
-    def _clean_zip_code(self, zip_code: str) -> str:
-        """
-        Remove formatação do CEP.
-        
-        Args:
-            zip_code: CEP com ou sem formatação
-            
-        Returns:
-            str: CEP apenas com números
-        """
-        return ''.join(filter(str.isdigit, zip_code))
-    
-    def _to_response_dto(self, client: Client) -> ClientResponseDto:
-        """
-        Converte entidade de domínio para DTO de resposta.
-        
-        Args:
-            client: Entidade de cliente
-            
-        Returns:
-            ClientResponseDto: DTO de resposta
-        """
-        return ClientResponseDto(
+        return ClientListDto(
             id=client.id,
             name=client.name,
             email=client.email,
             phone=client.phone,
             cpf=client.cpf,
-            birth_date=client.birth_date,
-            address=client.address,
-            city=client.city,
-            state=client.state,
-            zip_code=client.zip_code,
-            status=client.status,
-            notes=client.notes,
-            # Dados calculados
-            age=client.get_age(),
-            formatted_cpf=client.get_formatted_cpf(),
-            formatted_phone=client.get_formatted_phone(),
-            formatted_zip_code=client.get_formatted_zip_code(),
-            full_address=client.get_full_address(),
-            display_name=client.get_display_name(),
-            is_vip=client.is_vip(),
-            can_make_purchase=client.can_make_purchase(),
-            # Auditoria
-            created_at=client.created_at,
-            updated_at=client.updated_at
+            city=city
         )

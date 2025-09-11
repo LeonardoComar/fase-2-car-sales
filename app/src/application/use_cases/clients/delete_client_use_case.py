@@ -1,82 +1,62 @@
-from uuid import UUID
+"""
+Use Case para Exclusão de Cliente - Application Layer
+
+Responsável por excluir clientes aplicando regras de negócio.
+
+Aplicando princípios SOLID:
+- SRP: Responsável apenas pela exclusão de clientes
+- OCP: Extensível para novas validações sem modificar código existente
+- LSP: Pode ser substituído por outras implementações
+- ISP: Interface específica para exclusão
+- DIP: Depende de abstrações (repositórios) não de implementações
+"""
 
 from src.domain.ports.client_repository import ClientRepository
-from src.domain.exceptions import NotFoundError, BusinessRuleError
 
 
 class DeleteClientUseCase:
     """
-    Use case para exclusão de clientes.
+    Use Case para exclusão de clientes.
     
-    Aplicando o princípio Single Responsibility Principle (SRP) - 
-    responsável apenas pela exclusão de clientes.
-    
-    Aplicando o princípio Dependency Inversion Principle (DIP) - 
-    depende da abstração ClientRepository, não da implementação.
+    Coordena a validação e exclusão de clientes do sistema.
     """
     
     def __init__(self, client_repository: ClientRepository):
-        self.client_repository = client_repository
+        """
+        Inicializa o use case com as dependências necessárias.
+        
+        Args:
+            client_repository: Repositório de clientes
+        """
+        self._client_repository = client_repository
     
-    async def execute(self, client_id: UUID) -> None:
+    async def execute(self, client_id: int) -> bool:
         """
         Executa a exclusão de um cliente.
         
         Args:
             client_id: ID do cliente a ser excluído
             
+        Returns:
+            bool: True se excluído com sucesso, False se não encontrado
+            
         Raises:
-            NotFoundError: Se o cliente não for encontrado
-            BusinessRuleError: Se o cliente não puder ser excluído
+            ValueError: Se ID inválido for fornecido
+            Exception: Se houver erro na exclusão
         """
         try:
-            # Buscar cliente existente
-            existing_client = await self.client_repository.find_by_id(client_id)
+            if client_id <= 0:
+                raise ValueError("ID do cliente deve ser maior que zero")
+            
+            # Verificar se cliente existe
+            existing_client = await self._client_repository.find_by_id(client_id)
             if not existing_client:
-                raise NotFoundError("Cliente", str(client_id))
+                return False
             
-            # Validar se pode ser excluído
-            await self._validate_can_delete(client_id)
+            # Excluir cliente
+            return await self._client_repository.delete(client_id)
             
-            # Excluir do repositório
-            await self.client_repository.delete(client_id)
-            
-        except NotFoundError:
-            raise
-        except BusinessRuleError:
-            raise
+        except ValueError as e:
+            raise e
         except Exception as e:
-            raise BusinessRuleError(f"Erro interno durante exclusão do cliente: {str(e)}")
-    
-    async def _validate_can_delete(self, client_id: UUID) -> None:
-        """
-        Valida se o cliente pode ser excluído.
-        
-        Args:
-            client_id: ID do cliente
-            
-        Raises:
-            BusinessRuleError: Se o cliente não puder ser excluído
-        """
-        # Regra: Verificar se cliente tem vendas associadas
-        has_sales = await self.client_repository.has_associated_sales(client_id)
-        if has_sales:
-            raise BusinessRuleError(
-                "Não é possível excluir cliente que possui vendas associadas",
-                "client_has_sales"
-            )
-        
-        # Regra: Verificar se cliente tem transações pendentes
-        has_pending_transactions = await self.client_repository.has_pending_transactions(client_id)
-        if has_pending_transactions:
-            raise BusinessRuleError(
-                "Não é possível excluir cliente que possui transações pendentes",
-                "client_has_pending_transactions"
-            )
-        
-        # Regra: Clientes VIP requerem aprovação especial
-        client = await self.client_repository.find_by_id(client_id)
-        if client and client.is_vip():
-            # Em um cenário real, isso poderia exigir um processo de aprovação
-            # Por agora, apenas permitimos a exclusão com um log/aviso
-            pass
+            raise Exception(f"Erro ao excluir cliente: {str(e)}")

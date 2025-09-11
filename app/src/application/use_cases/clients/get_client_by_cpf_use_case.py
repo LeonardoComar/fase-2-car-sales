@@ -1,121 +1,111 @@
-from typing import Optional
+"""
+Use Case para Obter Cliente por CPF - Application Layer
 
-from src.application.dtos.client_dto import ClientResponseDto
+Responsável por buscar clientes por CPF aplicando regras de negócio.
+
+Aplicando princípios SOLID:
+- SRP: Responsável apenas pela busca de clientes por CPF
+- OCP: Extensível para novas validações sem modificar código existente
+- LSP: Pode ser substituído por outras implementações
+- ISP: Interface específica para busca por CPF
+- DIP: Depende de abstrações (repositórios) não de implementações
+"""
+
+from typing import Optional
 from src.domain.entities.client import Client
+from src.domain.entities.address import Address
 from src.domain.ports.client_repository import ClientRepository
-from src.domain.exceptions import NotFoundError, ValidationError
+from src.application.dtos.client_dto import ClientResponseDto
+from src.application.dtos.address_dto import AddressResponseDto
 
 
 class GetClientByCpfUseCase:
     """
-    Use case para buscar cliente por CPF.
+    Use Case para busca de clientes por CPF.
     
-    Aplicando o princípio Single Responsibility Principle (SRP) - 
-    responsável apenas pela busca de cliente por CPF.
-    
-    Aplicando o princípio Dependency Inversion Principle (DIP) - 
-    depende da abstração ClientRepository, não da implementação.
+    Coordena a busca e conversão de dados de clientes por CPF.
     """
     
     def __init__(self, client_repository: ClientRepository):
-        self.client_repository = client_repository
+        """
+        Inicializa o use case com as dependências necessárias.
+        
+        Args:
+            client_repository: Repositório de clientes
+        """
+        self._client_repository = client_repository
     
-    async def execute(self, cpf: str) -> ClientResponseDto:
+    async def execute(self, cpf: str) -> Optional[ClientResponseDto]:
         """
         Executa a busca de um cliente por CPF.
         
         Args:
-            cpf: CPF do cliente a ser buscado (pode estar formatado ou não)
+            cpf: CPF do cliente a ser buscado
             
         Returns:
-            ClientResponseDto: Dados do cliente encontrado
+            Optional[ClientResponseDto]: Dados do cliente ou None se não encontrado
             
         Raises:
-            ValidationError: Se o CPF for inválido
-            NotFoundError: Se o cliente não for encontrado
+            ValueError: Se CPF inválido for fornecido
+            Exception: Se houver erro na busca
         """
         try:
-            # Limpar e validar o CPF
-            clean_cpf = self._clean_cpf(cpf)
-            self._validate_cpf_format(clean_cpf)
+            if not cpf or not cpf.strip():
+                raise ValueError("CPF é obrigatório")
             
-            # Buscar no repositório
-            client = await self.client_repository.find_by_cpf(clean_cpf)
+            cpf_clean = cpf.strip()
+            
+            # Buscar cliente no repositório
+            client = await self._client_repository.find_by_cpf(cpf_clean)
             
             if not client:
-                raise NotFoundError("Cliente", f"CPF {cpf}")
+                return None
+            
+            # Buscar endereço se cliente tiver address_id
+            address = None
+            if client.address_id:
+                address = await self._client_repository.get_address_by_id(client.address_id)
             
             # Converter para DTO de resposta
-            return self._to_response_dto(client)
+            return self._convert_to_response_dto(client, address)
             
-        except ValidationError:
-            raise
-        except NotFoundError:
-            raise
+        except ValueError as e:
+            raise e
         except Exception as e:
-            raise ValidationError(f"Erro ao buscar cliente por CPF: {str(e)}")
+            raise Exception(f"Erro ao buscar cliente por CPF: {str(e)}")
     
-    def _clean_cpf(self, cpf: str) -> str:
+    def _convert_to_response_dto(self, client: Client, address: Optional[Address] = None) -> ClientResponseDto:
         """
-        Remove formatação do CPF.
+        Converte entidade Client para DTO de resposta.
         
         Args:
-            cpf: CPF com ou sem formatação
-            
-        Returns:
-            str: CPF apenas com números
-        """
-        return ''.join(filter(str.isdigit, cpf))
-    
-    def _validate_cpf_format(self, cpf: str) -> None:
-        """
-        Valida se o CPF tem o formato correto.
-        
-        Args:
-            cpf: CPF apenas com números
-            
-        Raises:
-            ValidationError: Se o CPF não tiver 11 dígitos
-        """
-        if len(cpf) != 11:
-            raise ValidationError("CPF deve conter exatamente 11 dígitos")
-        
-        if not cpf.isdigit():
-            raise ValidationError("CPF deve conter apenas números")
-    
-    def _to_response_dto(self, client: Client) -> ClientResponseDto:
-        """
-        Converte entidade de domínio para DTO de resposta.
-        
-        Args:
-            client: Entidade de cliente
+            client: Entidade do cliente
+            address: Entidade do endereço (opcional)
             
         Returns:
             ClientResponseDto: DTO de resposta
         """
+        address_dto = None
+        if address and address.id is not None:
+            address_dto = AddressResponseDto(
+                id=address.id,
+                street=address.street,
+                city=address.city,
+                state=address.state,
+                zip_code=address.zip_code,
+                country=address.country,
+                created_at=address.created_at.isoformat() if address.created_at else None,
+                updated_at=address.updated_at.isoformat() if address.updated_at else None,
+                full_address=address.get_full_address()
+            )
+        
         return ClientResponseDto(
             id=client.id,
             name=client.name,
             email=client.email,
             phone=client.phone,
             cpf=client.cpf,
-            birth_date=client.birth_date,
-            address=client.address,
-            city=client.city,
-            state=client.state,
-            zip_code=client.zip_code,
-            status=client.status,
-            notes=client.notes,
-            # Dados calculados
-            age=client.get_age(),
-            formatted_cpf=client.get_formatted_cpf(),
-            formatted_phone=client.get_formatted_phone(),
-            formatted_zip_code=client.get_formatted_zip_code(),
-            full_address=client.get_full_address(),
-            display_name=client.get_display_name(),
-            is_vip=client.is_vip(),
-            can_make_purchase=client.can_make_purchase(),
-            # Auditoria
-            created_at=client.created_at,
-            updated_at=client.updated_at
+            address=address_dto,
+            created_at=client.created_at.isoformat() if client.created_at else None,
+            updated_at=client.updated_at.isoformat() if client.updated_at else None
         )

@@ -1,27 +1,41 @@
-from typing import Optional
-from uuid import UUID
+"""
+Use Case para Obter Cliente - Application Layer
 
-from src.application.dtos.client_dto import ClientResponseDto
+Responsável por buscar clientes por ID aplicando regras de negócio.
+
+Aplicando princípios SOLID:
+- SRP: Responsável apenas pela busca de clientes
+- OCP: Extensível para novas validações sem modificar código existente
+- LSP: Pode ser substituído por outras implementações
+- ISP: Interface específica para busca
+- DIP: Depende de abstrações (repositórios) não de implementações
+"""
+
+from typing import Optional
 from src.domain.entities.client import Client
+from src.domain.entities.address import Address
 from src.domain.ports.client_repository import ClientRepository
-from src.domain.exceptions import NotFoundError
+from src.application.dtos.client_dto import ClientResponseDto
+from src.application.dtos.address_dto import AddressResponseDto
 
 
 class GetClientByIdUseCase:
     """
-    Use case para buscar cliente por ID.
+    Use Case para busca de clientes por ID.
     
-    Aplicando o princípio Single Responsibility Principle (SRP) - 
-    responsável apenas pela busca de cliente por ID.
-    
-    Aplicando o princípio Dependency Inversion Principle (DIP) - 
-    depende da abstração ClientRepository, não da implementação.
+    Coordena a busca e conversão de dados de clientes.
     """
     
     def __init__(self, client_repository: ClientRepository):
-        self.client_repository = client_repository
+        """
+        Inicializa o use case com as dependências necessárias.
+        
+        Args:
+            client_repository: Repositório de clientes
+        """
+        self._client_repository = client_repository
     
-    async def execute(self, client_id: UUID) -> ClientResponseDto:
+    async def execute(self, client_id: int) -> Optional[ClientResponseDto]:
         """
         Executa a busca de um cliente por ID.
         
@@ -29,59 +43,67 @@ class GetClientByIdUseCase:
             client_id: ID do cliente a ser buscado
             
         Returns:
-            ClientResponseDto: Dados do cliente encontrado
+            Optional[ClientResponseDto]: Dados do cliente ou None se não encontrado
             
         Raises:
-            NotFoundError: Se o cliente não for encontrado
+            ValueError: Se ID inválido for fornecido
+            Exception: Se houver erro na busca
         """
         try:
-            # Buscar no repositório
-            client = await self.client_repository.find_by_id(client_id)
+            if client_id <= 0:
+                raise ValueError("ID do cliente deve ser maior que zero")
+            
+            # Buscar cliente no repositório
+            client = await self._client_repository.find_by_id(client_id)
             
             if not client:
-                raise NotFoundError("Cliente", str(client_id))
+                return None
+            
+            # Buscar endereço se cliente tiver address_id
+            address = None
+            if client.address_id:
+                address = await self._client_repository.get_address_by_id(client.address_id)
             
             # Converter para DTO de resposta
-            return self._to_response_dto(client)
+            return self._convert_to_response_dto(client, address)
             
-        except NotFoundError:
-            raise
+        except ValueError as e:
+            raise e
         except Exception as e:
-            raise NotFoundError("Cliente", str(client_id))
+            raise Exception(f"Erro ao buscar cliente: {str(e)}")
     
-    def _to_response_dto(self, client: Client) -> ClientResponseDto:
+    def _convert_to_response_dto(self, client: Client, address: Optional[Address] = None) -> ClientResponseDto:
         """
-        Converte entidade de domínio para DTO de resposta.
+        Converte entidade Client para DTO de resposta.
         
         Args:
-            client: Entidade de cliente
+            client: Entidade do cliente
+            address: Entidade do endereço (opcional)
             
         Returns:
             ClientResponseDto: DTO de resposta
         """
+        address_dto = None
+        if address and address.id is not None:
+            address_dto = AddressResponseDto(
+                id=address.id,
+                street=address.street,
+                city=address.city,
+                state=address.state,
+                zip_code=address.zip_code,
+                country=address.country,
+                created_at=address.created_at.isoformat() if address.created_at else None,
+                updated_at=address.updated_at.isoformat() if address.updated_at else None,
+                full_address=address.get_full_address()
+            )
+        
         return ClientResponseDto(
             id=client.id,
             name=client.name,
             email=client.email,
             phone=client.phone,
             cpf=client.cpf,
-            birth_date=client.birth_date,
-            address=client.address,
-            city=client.city,
-            state=client.state,
-            zip_code=client.zip_code,
-            status=client.status,
-            notes=client.notes,
-            # Dados calculados
-            age=client.get_age(),
-            formatted_cpf=client.get_formatted_cpf(),
-            formatted_phone=client.get_formatted_phone(),
-            formatted_zip_code=client.get_formatted_zip_code(),
-            full_address=client.get_full_address(),
-            display_name=client.get_display_name(),
-            is_vip=client.is_vip(),
-            can_make_purchase=client.can_make_purchase(),
-            # Auditoria
-            created_at=client.created_at,
-            updated_at=client.updated_at
+            address=address_dto,
+            created_at=client.created_at.isoformat() if client.created_at else None,
+            updated_at=client.updated_at.isoformat() if client.updated_at else None
         )

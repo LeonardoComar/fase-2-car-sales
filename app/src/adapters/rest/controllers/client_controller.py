@@ -1,57 +1,61 @@
 """
-Controller REST para Client - Adapters Layer
+Controller de Clientes - Adapter Layer
 
-Implementa os endpoints da API para gerenciamento de clientes.
-Aplica padrões REST e Clean Architecture, delegando para use cases.
+Responsável por coordenar as operações HTTP relacionadas a clientes.
+Faz a ponte entre a camada de apresentação (routers) e a camada de aplicação (use cases).
 
 Aplicando princípios SOLID:
-- SRP: Cada controller tem responsabilidade específica
-- OCP: Extensível para novos endpoints sem modificar existentes
-- LSP: Controllers podem ser substituídos sem afetar comportamento
-- ISP: Interfaces específicas para cada operação
-- DIP: Dependem de abstrações (use cases), não de implementações
+- SRP: Responsável apenas pela coordenação de operações de clientes
+- OCP: Extensível para novas operações sem modificar existentes
+- LSP: Pode ser substituído por outras implementações
+- ISP: Interface específica para operações de clientes
+- DIP: Depende de abstrações (use cases) não de implementações
 """
 
-from typing import List, Optional, Dict, Any
-from uuid import UUID
-from fastapi import APIRouter, HTTPException, status, Depends, Query
+from typing import Optional, List
+from fastapi import HTTPException, status
+from fastapi.responses import JSONResponse
 
-from src.application.dtos.client_dto import (
-    ClientCreateDto,
-    ClientUpdateDto,
-    ClientResponseDto,
-    ClientSearchDto,
-    ClientStatusUpdateDto
-)
-from src.application.use_cases.clients import (
-    CreateClientUseCase,
-    GetClientByIdUseCase,
-    GetClientByCpfUseCase,
-    UpdateClientUseCase,
-    DeleteClientUseCase,
-    ListClientsUseCase,
-    UpdateClientStatusUseCase,
-)
+from src.application.use_cases.clients.create_client_use_case import CreateClientUseCase
+from src.application.use_cases.clients.get_client_by_id_use_case import GetClientByIdUseCase
+from src.application.use_cases.clients.get_client_by_cpf_use_case import GetClientByCpfUseCase
+from src.application.use_cases.clients.update_client_use_case import UpdateClientUseCase
+from src.application.use_cases.clients.delete_client_use_case import DeleteClientUseCase
+from src.application.use_cases.clients.list_clients_use_case import ListClientsUseCase
+from src.application.use_cases.clients.update_client_status_use_case import UpdateClientStatusUseCase
+from src.application.dtos.client_dto import CreateClientDto, UpdateClientDto, ClientResponseDto, ClientListDto
+from src.adapters.rest.presenters.client_presenter import ClientPresenter
 
 
 class ClientController:
     """
     Controller para operações de clientes.
     
-    Centraliza todos os endpoints relacionados ao gerenciamento
-    de clientes, aplicando validações e tratamento de erros.
+    Coordena a execução de use cases e formatação de respostas HTTP.
     """
     
-    def __init__(
-        self,
-        create_use_case: CreateClientUseCase,
-        get_by_id_use_case: GetClientByIdUseCase,
-        get_by_cpf_use_case: GetClientByCpfUseCase,
-        update_use_case: UpdateClientUseCase,
-        delete_use_case: DeleteClientUseCase,
-        list_use_case: ListClientsUseCase,
-        update_status_use_case: UpdateClientStatusUseCase
-    ):
+    def __init__(self,
+                 create_use_case: CreateClientUseCase,
+                 get_by_id_use_case: GetClientByIdUseCase,
+                 get_by_cpf_use_case: GetClientByCpfUseCase,
+                 update_use_case: UpdateClientUseCase,
+                 delete_use_case: DeleteClientUseCase,
+                 list_use_case: ListClientsUseCase,
+                 update_status_use_case: UpdateClientStatusUseCase,
+                 client_presenter: ClientPresenter):
+        """
+        Inicializa o controller com os use cases necessários.
+        
+        Args:
+            create_use_case: Use case para criar clientes
+            get_by_id_use_case: Use case para buscar clientes por ID
+            get_by_cpf_use_case: Use case para buscar clientes por CPF
+            update_use_case: Use case para atualizar clientes
+            delete_use_case: Use case para excluir clientes
+            list_use_case: Use case para listar clientes
+            update_status_use_case: Use case para atualizar status (não implementado)
+            client_presenter: Presenter para formatação de respostas
+        """
         self._create_use_case = create_use_case
         self._get_by_id_use_case = get_by_id_use_case
         self._get_by_cpf_use_case = get_by_cpf_use_case
@@ -59,19 +63,32 @@ class ClientController:
         self._delete_use_case = delete_use_case
         self._list_use_case = list_use_case
         self._update_status_use_case = update_status_use_case
+        self._presenter = client_presenter
     
-    async def create_client(self, dto: ClientCreateDto) -> ClientResponseDto:
+    async def create_client(self, client_data: CreateClientDto) -> JSONResponse:
         """
         Cria um novo cliente.
         
         Args:
-            dto: Dados do cliente
+            client_data: Dados para criação do cliente
             
         Returns:
-            Dados do cliente criado
+            JSONResponse: Resposta com dados do cliente criado
+            
+        Raises:
+            HTTPException: Se houver erro na criação
         """
         try:
-            return await self._create_use_case.execute(dto)
+            client = await self._create_use_case.execute(client_data)
+            
+            return JSONResponse(
+                status_code=status.HTTP_201_CREATED,
+                content=self._presenter.present_success(
+                    "Cliente criado com sucesso",
+                    self._presenter.present_client(client)
+                )
+            )
+            
         except ValueError as e:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -80,338 +97,214 @@ class ClientController:
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Erro interno na criação do cliente"
+                detail=f"Erro interno: {str(e)}"
             )
     
-    async def get_client_by_id(self, client_id: UUID) -> ClientResponseDto:
+    async def get_client_by_id(self, client_id: int) -> JSONResponse:
         """
-        Obtém um cliente por ID.
+        Busca um cliente por ID.
         
         Args:
             client_id: ID do cliente
             
         Returns:
-            Dados do cliente
+            JSONResponse: Resposta com dados do cliente
+            
+        Raises:
+            HTTPException: Se cliente não encontrado ou erro interno
         """
         try:
-            return await self._get_by_id_use_case.execute(client_id)
+            client = await self._get_by_id_use_case.execute(client_id)
+            
+            if not client:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Cliente não encontrado"
+                )
+            
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content=self._presenter.present_success(
+                    "Cliente encontrado",
+                    self._presenter.present_client(client)
+                )
+            )
+            
+        except HTTPException:
+            raise
         except ValueError as e:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
+                status_code=status.HTTP_400_BAD_REQUEST,
                 detail=str(e)
             )
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Erro interno na obtenção do cliente"
+                detail=f"Erro interno: {str(e)}"
             )
     
-    async def get_client_by_cpf(self, cpf: str) -> ClientResponseDto:
+    async def get_client_by_cpf(self, cpf: str) -> JSONResponse:
         """
-        Obtém um cliente por CPF.
+        Busca um cliente por CPF.
         
         Args:
             cpf: CPF do cliente
             
         Returns:
-            Dados do cliente
+            JSONResponse: Resposta com dados do cliente
+            
+        Raises:
+            HTTPException: Se cliente não encontrado ou erro interno
         """
         try:
-            return await self._get_by_cpf_use_case.execute(cpf)
-        except ValueError as e:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=str(e)
-            )
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Erro interno na obtenção do cliente"
-            )
-    
-    async def update_client(
-        self, 
-        client_id: UUID, 
-        dto: ClientUpdateDto
-    ) -> ClientResponseDto:
-        """
-        Atualiza um cliente.
-        
-        Args:
-            client_id: ID do cliente
-            dto: Dados para atualização
+            client = await self._get_by_cpf_use_case.execute(cpf)
             
-        Returns:
-            Dados do cliente atualizado
-        """
-        try:
-            return await self._update_use_case.execute(client_id, dto)
-        except ValueError as e:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=str(e)
-            )
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Erro interno na atualização do cliente"
-            )
-    
-    async def delete_client(self, client_id: UUID) -> Dict[str, Any]:
-        """
-        Exclui um cliente.
-        
-        Args:
-            client_id: ID do cliente
-            
-        Returns:
-            Confirmação da exclusão
-        """
-        try:
-            success = await self._delete_use_case.execute(client_id)
-            
-            if success:
-                return {
-                    "message": "Cliente excluído com sucesso",
-                    "client_id": str(client_id)
-                }
-            else:
+            if not client:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="Cliente não encontrado"
                 )
-                
+            
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content=self._presenter.present_success(
+                    "Cliente encontrado",
+                    self._presenter.present_client(client)
+                )
+            )
+            
+        except HTTPException:
+            raise
         except ValueError as e:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
+                status_code=status.HTTP_400_BAD_REQUEST,
                 detail=str(e)
             )
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Erro interno na exclusão do cliente"
+                detail=f"Erro interno: {str(e)}"
             )
     
-    async def list_clients(self, dto: ClientSearchDto) -> Dict[str, Any]:
+    async def update_client(self, client_id: int, client_data: UpdateClientDto) -> JSONResponse:
         """
-        Lista clientes com filtros.
-        
-        Args:
-            dto: Critérios de busca
-            
-        Returns:
-            Lista de clientes e metadados de paginação
-        """
-        try:
-            clients, total = await self._list_use_case.execute(dto)
-            
-            return {
-                "clients": clients,
-                "pagination": {
-                    "total": total,
-                    "skip": dto.skip,
-                    "limit": dto.limit,
-                    "has_next": (dto.skip + dto.limit) < total,
-                    "has_previous": dto.skip > 0
-                }
-            }
-            
-        except Exception as e:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Erro interno na listagem de clientes"
-            )
-    
-    async def update_client_status(
-        self, 
-        client_id: UUID, 
-        dto: ClientStatusUpdateDto
-    ) -> ClientResponseDto:
-        """
-        Atualiza status de um cliente.
+        Atualiza um cliente existente.
         
         Args:
             client_id: ID do cliente
-            dto: Novo status
+            client_data: Dados para atualização
             
         Returns:
-            Dados do cliente atualizado
+            JSONResponse: Resposta com dados do cliente atualizado
+            
+        Raises:
+            HTTPException: Se cliente não encontrado ou erro interno
         """
         try:
-            return await self._update_status_use_case.execute(client_id, dto)
+            client = await self._update_use_case.execute(client_id, client_data)
+            
+            if not client:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Cliente não encontrado"
+                )
+            
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content=self._presenter.present_success(
+                    "Cliente atualizado com sucesso",
+                    self._presenter.present_client(client)
+                )
+            )
+            
+        except HTTPException:
+            raise
         except ValueError as e:
             raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
+                status_code=status.HTTP_400_BAD_REQUEST,
                 detail=str(e)
             )
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Erro interno na atualização do status"
+                detail=f"Erro interno: {str(e)}"
             )
-
-
-def create_client_router(
-    create_use_case: CreateClientUseCase,
-    get_by_id_use_case: GetClientByIdUseCase,
-    get_by_cpf_use_case: GetClientByCpfUseCase,
-    update_use_case: UpdateClientUseCase,
-    delete_use_case: DeleteClientUseCase,
-    list_use_case: ListClientsUseCase,
-    update_status_use_case: UpdateClientStatusUseCase
-) -> APIRouter:
-    """
-    Factory para criar o router de clientes.
     
-    Args:
-        *_use_case: Injeção de dependência dos use cases
-        
-    Returns:
-        Router configurado com todos os endpoints
-    """
-    
-    router = APIRouter(prefix="/clients", tags=["Clients"])
-    
-    controller = ClientController(
-        create_use_case=create_use_case,
-        get_by_id_use_case=get_by_id_use_case,
-        get_by_cpf_use_case=get_by_cpf_use_case,
-        update_use_case=update_use_case,
-        delete_use_case=delete_use_case,
-        list_use_case=list_use_case,
-        update_status_use_case=update_status_use_case
-    )
-    
-    @router.post("/", 
-                response_model=ClientResponseDto,
-                status_code=status.HTTP_201_CREATED)
-    async def create_client(dto: ClientCreateDto):
-        """Cria um novo cliente."""
-        return await controller.create_client(dto)
-    
-    @router.get("/{client_id}", response_model=ClientResponseDto)
-    async def get_client_by_id(client_id: UUID):
-        """Obtém um cliente por ID."""
-        return await controller.get_client_by_id(client_id)
-    
-    @router.get("/cpf/{cpf}", response_model=ClientResponseDto)
-    async def get_client_by_cpf(cpf: str):
-        """Obtém um cliente por CPF."""
-        return await controller.get_client_by_cpf(cpf)
-    
-    @router.put("/{client_id}", response_model=ClientResponseDto)
-    async def update_client(client_id: UUID, dto: ClientUpdateDto):
-        """Atualiza um cliente."""
-        return await controller.update_client(client_id, dto)
-    
-    @router.delete("/{client_id}")
-    async def delete_client(client_id: UUID):
-        """Exclui um cliente."""
-        return await controller.delete_client(client_id)
-    
-    @router.post("/search")
-    async def list_clients(dto: ClientSearchDto):
-        """Lista clientes com filtros."""
-        return await controller.list_clients(dto)
-    
-    @router.patch("/{client_id}/status", response_model=ClientResponseDto)
-    async def update_client_status(client_id: UUID, dto: ClientStatusUpdateDto):
-        """Atualiza status de um cliente."""
-        return await controller.update_client_status(client_id, dto)
-    
-    return router
-
-
-# ==============================================
-# PRESENTERS
-# ==============================================
-
-class ClientPresenter:
-    """
-    Presenter para formatação de respostas de clientes.
-    
-    Aplica formatações específicas para diferentes contextos
-    de apresentação dos dados.
-    """
-    
-    @staticmethod
-    def format_client_response(client: ClientResponseDto) -> Dict[str, Any]:
+    async def delete_client(self, client_id: int) -> JSONResponse:
         """
-        Formata resposta de cliente com campos computados.
+        Remove um cliente.
         
         Args:
-            client: DTO do cliente
+            client_id: ID do cliente
             
         Returns:
-            Dados formatados para resposta
+            JSONResponse: Resposta de confirmação
+            
+        Raises:
+            HTTPException: Se cliente não encontrado ou erro interno
         """
-        return {
-            "id": str(client.id),
-            "name": client.name,
-            "email": client.email,
-            "phone": client.phone,
-            "cpf": client.cpf,
-            "birth_date": client.birth_date.isoformat() if client.birth_date else None,
-            "address": {
-                "street": client.address,
-                "city": client.city,
-                "state": client.state,
-                "zip_code": client.zip_code,
-                "full_address": client.full_address
-            },
-            "status": client.status,
-            "notes": client.notes,
-            "computed_fields": {
-                "age": client.age,
-                "formatted_cpf": client.formatted_cpf,
-                "formatted_phone": client.formatted_phone,
-                "formatted_zip_code": client.formatted_zip_code,
-                "display_name": client.display_name,
-                "is_vip": client.is_vip,
-                "can_make_purchase": client.can_make_purchase
-            },
-            "timestamps": {
-                "created_at": client.created_at.isoformat(),
-                "updated_at": client.updated_at.isoformat()
-            }
-        }
+        try:
+            deleted = await self._delete_use_case.execute(client_id)
+            
+            if not deleted:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Cliente não encontrado"
+                )
+            
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content=self._presenter.present_success("Cliente removido com sucesso")
+            )
+            
+        except HTTPException:
+            raise
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e)
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Erro interno: {str(e)}"
+            )
     
-    @staticmethod
-    def format_client_list_response(clients: List[ClientResponseDto]) -> List[Dict[str, Any]]:
+    async def list_clients(self, skip: int = 0, limit: int = 100,
+                          name: Optional[str] = None, cpf: Optional[str] = None) -> JSONResponse:
         """
-        Formata lista de clientes para resposta.
+        Lista clientes com filtros e paginação.
         
         Args:
-            clients: Lista de DTOs de clientes
+            skip: Número de registros para pular
+            limit: Número máximo de registros
+            name: Filtro por nome (opcional)
+            cpf: Filtro por CPF (opcional)
             
         Returns:
-            Lista formatada para resposta
-        """
-        return [
-            ClientPresenter.format_client_response(client) 
-            for client in clients
-        ]
-    
-    @staticmethod
-    def format_client_summary(client: ClientResponseDto) -> Dict[str, Any]:
-        """
-        Formata resumo de cliente (dados essenciais).
-        
-        Args:
-            client: DTO do cliente
+            JSONResponse: Lista de clientes
             
-        Returns:
-            Resumo formatado
+        Raises:
+            HTTPException: Se erro interno
         """
-        return {
-            "id": str(client.id),
-            "name": client.name,
-            "email": client.email,
-            "phone": client.phone,
-            "cpf": client.formatted_cpf,
-            "status": client.status,
-            "display_name": client.display_name,
-            "is_vip": client.is_vip,
-            "city": client.city,
-            "state": client.state
-        }
+        try:
+            clients = await self._list_use_case.execute(skip, limit, name, cpf)
+            
+            return JSONResponse(
+                status_code=status.HTTP_200_OK,
+                content=self._presenter.present_success(
+                    "Lista de clientes recuperada com sucesso",
+                    self._presenter.present_client_list(clients)
+                )
+            )
+            
+        except ValueError as e:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=str(e)
+            )
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Erro interno: {str(e)}"
+            )

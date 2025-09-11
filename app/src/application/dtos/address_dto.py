@@ -1,19 +1,7 @@
 """
 Address DTOs - Application Layer
 
-DTOs p        schema_extra = {
-            "example": {
-                "id": 1,
-                "street": "Rua das Empresas, 456",
-                "city": "São Paulo",
-                "state": "SP",
-                "zip_code": "01234-567",
-                "country": "Brasil",
-                "created_at": "2024-01-01T10:00:00",
-                "updated_at": "2024-01-01T10:00:00",
-                "full_address": "Rua das Empresas, 456, São Paulo - SP, 01234-567, Brasil"
-            }
-        }ncia de dados de endereços seguindo Clean Architecture
+DTOs para transferência de dados de endereços seguindo Clean Architecture
 """
 
 from pydantic import BaseModel, Field
@@ -31,7 +19,7 @@ class AddressDto(BaseModel):
     country: str = Field(default="Brasil", min_length=2, max_length=50, description="País")
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "street": "Rua das Flores, 123, Apto 45",
                 "city": "São Paulo",
@@ -57,7 +45,7 @@ class AddressResponseDto(BaseModel):
     
     class Config:
         from_attributes = True
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "id": "123e4567-e89b-12d3-a456-426614174000",
                 "street": "Rua das Flores, 123, Apto 45",
@@ -82,7 +70,7 @@ class AddressCreateDto(BaseModel):
     country: str = Field(default="Brasil", min_length=2, max_length=50, description="País")
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "street": "Rua das Flores, 123, Apto 45",
                 "city": "São Paulo",
@@ -103,7 +91,7 @@ class AddressUpdateDto(BaseModel):
     country: Optional[str] = Field(None, min_length=2, max_length=50, description="País")
     
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "street": "Rua das Flores, 123, Apto 45",
                 "city": "São Paulo",

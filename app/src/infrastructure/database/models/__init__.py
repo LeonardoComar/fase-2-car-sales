@@ -12,6 +12,7 @@ from .user_model import UserModel
 from .motor_vehicle_model import MotorVehicleModel
 from .car_model import CarModel
 from .motorcycle_model import MotorcycleModel
+from .address_model import AddressModel
 from .client_model import ClientModel
 # from .employee_model import EmployeeModel  # TODO: Implementar quando necessário
 from .sale_model import SaleModel
@@ -21,7 +22,8 @@ __all__ = [
     "UserModel",
     "MotorVehicleModel",
     "CarModel",
-    "MotorcycleModel", 
+    "MotorcycleModel",
+    "AddressModel",
     "ClientModel",
     # "EmployeeModel",  # TODO: Implementar quando necessário
     "SaleModel",

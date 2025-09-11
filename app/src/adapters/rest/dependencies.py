@@ -219,41 +219,41 @@ def get_get_current_user_use_case() -> GetCurrentUserUseCase:
     )
 
 
-# Dependency Functions - Use Cases - Client (com mock repository)
+# Dependency Functions - Use Cases - Client (com banco de dados)
 
 def get_create_client_use_case() -> CreateClientUseCase:
-    """Factory para CreateClientUseCase - versão com mock."""
-    return CreateClientUseCase(get_mock_client_repository())
+    """Factory para CreateClientUseCase - versão com banco de dados."""
+    return CreateClientUseCase(get_client_gateway())
 
 
 def get_get_client_by_id_use_case() -> GetClientByIdUseCase:
-    """Factory para GetClientByIdUseCase - versão com mock."""
-    return GetClientByIdUseCase(get_mock_client_repository())
+    """Factory para GetClientByIdUseCase - versão com banco de dados."""
+    return GetClientByIdUseCase(get_client_gateway())
 
 
 def get_get_client_by_cpf_use_case() -> GetClientByCpfUseCase:
-    """Factory para GetClientByCpfUseCase - versão com mock."""
-    return GetClientByCpfUseCase(get_mock_client_repository())
+    """Factory para GetClientByCpfUseCase - versão com banco de dados."""
+    return GetClientByCpfUseCase(get_client_gateway())
 
 
 def get_update_client_use_case() -> UpdateClientUseCase:
-    """Factory para UpdateClientUseCase - versão com mock."""
-    return UpdateClientUseCase(get_mock_client_repository())
+    """Factory para UpdateClientUseCase - versão com banco de dados."""
+    return UpdateClientUseCase(get_client_gateway())
 
 
 def get_delete_client_use_case() -> DeleteClientUseCase:
-    """Factory para DeleteClientUseCase - versão com mock."""
-    return DeleteClientUseCase(get_mock_client_repository())
+    """Factory para DeleteClientUseCase - versão com banco de dados."""
+    return DeleteClientUseCase(get_client_gateway())
 
 
 def get_list_clients_use_case() -> ListClientsUseCase:
-    """Factory para ListClientsUseCase - versão com mock."""
-    return ListClientsUseCase(get_mock_client_repository())
+    """Factory para ListClientsUseCase - versão com banco de dados."""
+    return ListClientsUseCase(get_client_gateway())
 
 
 def get_update_client_status_use_case() -> UpdateClientStatusUseCase:
-    """Factory para UpdateClientStatusUseCase - versão com mock."""
-    return UpdateClientStatusUseCase(get_mock_client_repository())
+    """Factory para UpdateClientStatusUseCase - versão com banco de dados."""
+    return UpdateClientStatusUseCase(get_client_gateway())
 
 
 def get_create_sale_use_case() -> CreateSaleUseCase:
