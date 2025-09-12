@@ -42,8 +42,7 @@ from .sales import (
     UpdateSaleUseCase,
     DeleteSaleUseCase,
     ListSalesUseCase,
-    UpdateSaleStatusUseCase,
-    GetSalesStatisticsUseCase,
+    SaleStatisticsUseCase,
 )
 
 # Message Use Cases
@@ -98,8 +97,7 @@ __all__ = [
     "UpdateSaleUseCase",
     "DeleteSaleUseCase",
     "ListSalesUseCase",
-    "UpdateSaleStatusUseCase",
-    "GetSalesStatisticsUseCase",
+    "SaleStatisticsUseCase",
     # Message Use Cases
     "CreateMessageUseCase",
     "GetMessageByIdUseCase",

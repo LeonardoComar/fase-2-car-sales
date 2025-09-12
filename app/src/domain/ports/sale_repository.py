@@ -1,41 +1,43 @@
-from abc import ABC, abstractmethod
-from typing import Optional, List, Dict, Any
-from uuid import UUID
-from datetime import date
-from decimal import Decimal
+"""
+Interface Sale Repository - Domain Layer
 
+Define o contrato para persistência de vendas.
+
+Aplicando princípios SOLID:
+- ISP: Interface específica para operações de venda
+- DIP: Define abstração que será implementada pela infraestrutura
+"""
+
+from abc import ABC, abstractmethod
+from typing import Optional, List
 from src.domain.entities.sale import Sale
+from datetime import date
 
 
 class SaleRepository(ABC):
     """
-    Interface para o repositório de vendas.
-    
-    Aplicando o princípio Dependency Inversion Principle (DIP) - 
-    define contrato independente de implementação específica.
-    
-    Aplicando o princípio Interface Segregation Principle (ISP) - 
-    interface focada nas operações de vendas.
+    Interface (porta) para o repositório de vendas.
+    Define as operações que devem ser implementadas pela infraestrutura.
     """
 
     @abstractmethod
-    async def save(self, sale: Sale) -> Sale:
+    async def create_sale(self, sale: Sale) -> Sale:
         """
-        Salva uma venda.
+        Cria uma nova venda no repositório.
         
         Args:
-            sale: Venda a ser salva
+            sale: Entidade da venda
             
         Returns:
-            Sale: Venda salva com dados atualizados
+            Sale: A venda criada com ID gerado
             
         Raises:
-            Exception: Se houver erro na operação
+            Exception: Se houver erro na criação
         """
         pass
 
     @abstractmethod
-    async def find_by_id(self, sale_id: UUID) -> Optional[Sale]:
+    async def get_sale_by_id(self, sale_id: int) -> Optional[Sale]:
         """
         Busca uma venda pelo ID.
         
@@ -48,12 +50,64 @@ class SaleRepository(ABC):
         pass
 
     @abstractmethod
-    async def find_by_criteria(self, **kwargs) -> List[Sale]:
+    async def update_sale(self, sale_id: int, sale: Sale) -> Optional[Sale]:
         """
-        Busca vendas por múltiplos critérios.
+        Atualiza uma venda existente.
         
         Args:
-            **kwargs: Critérios de busca (client_id, employee_id, status, etc.)
+            sale_id: ID da venda
+            sale: Dados atualizados da venda
+            
+        Returns:
+            Optional[Sale]: A venda atualizada ou None se não encontrada
+            
+        Raises:
+            Exception: Se houver erro na atualização
+        """
+        pass
+
+    @abstractmethod
+    async def update_sale_status(self, sale_id: int, status: str) -> Optional[Sale]:
+        """
+        Atualiza apenas o status de uma venda.
+        
+        Args:
+            sale_id: ID da venda
+            status: Novo status
+            
+        Returns:
+            Optional[Sale]: A venda atualizada ou None se não encontrada
+            
+        Raises:
+            Exception: Se houver erro na atualização
+        """
+        pass
+
+    @abstractmethod
+    async def delete_sale(self, sale_id: int) -> bool:
+        """
+        Remove uma venda do repositório.
+        
+        Args:
+            sale_id: ID da venda a ser removida
+            
+        Returns:
+            bool: True se removida com sucesso, False se não encontrada
+            
+        Raises:
+            Exception: Se houver erro na remoção
+        """
+        pass
+
+    @abstractmethod
+    async def get_all_sales(self, skip: int = 0, limit: int = 100, order_by_value: Optional[str] = None) -> List[Sale]:
+        """
+        Busca todas as vendas com paginação.
+        
+        Args:
+            skip: Número de registros para pular
+            limit: Número máximo de registros para retornar
+            order_by_value: Ordenação por valor - 'asc' ou 'desc' (opcional)
             
         Returns:
             List[Sale]: Lista de vendas encontradas
@@ -61,13 +115,15 @@ class SaleRepository(ABC):
         pass
 
     @abstractmethod
-    async def find_by_client(self, client_id: UUID, **kwargs) -> List[Sale]:
+    async def get_sales_by_client(self, client_id: int, skip: int = 0, limit: int = 100, order_by_value: Optional[str] = None) -> List[Sale]:
         """
         Busca vendas por cliente.
         
         Args:
             client_id: ID do cliente
-            **kwargs: Parâmetros adicionais (skip, limit, order_by, etc.)
+            skip: Número de registros para pular
+            limit: Número máximo de registros para retornar
+            order_by_value: Ordenação por valor - 'asc' ou 'desc' (opcional)
             
         Returns:
             List[Sale]: Lista de vendas encontradas
@@ -75,13 +131,15 @@ class SaleRepository(ABC):
         pass
 
     @abstractmethod
-    async def find_by_employee(self, employee_id: UUID, **kwargs) -> List[Sale]:
+    async def get_sales_by_employee(self, employee_id: int, skip: int = 0, limit: int = 100, order_by_value: Optional[str] = None) -> List[Sale]:
         """
         Busca vendas por funcionário.
         
         Args:
             employee_id: ID do funcionário
-            **kwargs: Parâmetros adicionais (skip, limit, order_by, etc.)
+            skip: Número de registros para pular
+            limit: Número máximo de registros para retornar
+            order_by_value: Ordenação por valor - 'asc' ou 'desc' (opcional)
             
         Returns:
             List[Sale]: Lista de vendas encontradas
@@ -89,26 +147,15 @@ class SaleRepository(ABC):
         pass
 
     @abstractmethod
-    async def find_by_vehicle(self, vehicle_id: UUID) -> Optional[Sale]:
-        """
-        Busca venda por veículo (assumindo 1:1).
-        
-        Args:
-            vehicle_id: ID do veículo
-            
-        Returns:
-            Optional[Sale]: Venda encontrada ou None
-        """
-        pass
-
-    @abstractmethod
-    async def find_by_status(self, status: str, **kwargs) -> List[Sale]:
+    async def get_sales_by_status(self, status: str, skip: int = 0, limit: int = 100, order_by_value: Optional[str] = None) -> List[Sale]:
         """
         Busca vendas por status.
         
         Args:
             status: Status das vendas
-            **kwargs: Parâmetros adicionais (skip, limit, order_by, etc.)
+            skip: Número de registros para pular
+            limit: Número máximo de registros para retornar
+            order_by_value: Ordenação por valor - 'asc' ou 'desc' (opcional)
             
         Returns:
             List[Sale]: Lista de vendas encontradas
@@ -116,14 +163,17 @@ class SaleRepository(ABC):
         pass
 
     @abstractmethod
-    async def find_by_date_range(self, start_date: date, end_date: date, **kwargs) -> List[Sale]:
+    async def get_sales_by_date_range(self, start_date: date, end_date: date, 
+                                     skip: int = 0, limit: int = 100, order_by_value: Optional[str] = None) -> List[Sale]:
         """
         Busca vendas por período.
         
         Args:
             start_date: Data inicial
             end_date: Data final
-            **kwargs: Parâmetros adicionais (skip, limit, order_by, etc.)
+            skip: Número de registros para pular
+            limit: Número máximo de registros para retornar
+            order_by_value: Ordenação por valor - 'asc' ou 'desc' (opcional)
             
         Returns:
             List[Sale]: Lista de vendas encontradas
@@ -131,13 +181,16 @@ class SaleRepository(ABC):
         pass
 
     @abstractmethod
-    async def find_by_payment_method(self, payment_method: str, **kwargs) -> List[Sale]:
+    async def get_sales_by_payment_method(self, payment_method: str, 
+                                         skip: int = 0, limit: int = 100, order_by_value: Optional[str] = None) -> List[Sale]:
         """
         Busca vendas por forma de pagamento.
         
         Args:
             payment_method: Forma de pagamento
-            **kwargs: Parâmetros adicionais (skip, limit, order_by, etc.)
+            skip: Número de registros para pular
+            limit: Número máximo de registros para retornar
+            order_by_value: Ordenação por valor - 'asc' ou 'desc' (opcional)
             
         Returns:
             List[Sale]: Lista de vendas encontradas
@@ -145,118 +198,8 @@ class SaleRepository(ABC):
         pass
 
     @abstractmethod
-    async def delete(self, sale_id: UUID) -> None:
-        """
-        Remove uma venda.
-        
-        Args:
-            sale_id: ID da venda a ser removida
-            
-        Raises:
-            Exception: Se venda não encontrada ou erro na operação
-        """
-        pass
-
-    @abstractmethod
-    async def exists_by_id(self, sale_id: UUID) -> bool:
-        """
-        Verifica se existe venda com o ID.
-        
-        Args:
-            sale_id: ID a ser verificado
-            
-        Returns:
-            bool: True se existir venda com o ID
-        """
-        pass
-
-    @abstractmethod
-    async def exists_by_vehicle(self, vehicle_id: UUID, exclude_id: Optional[UUID] = None) -> bool:
-        """
-        Verifica se existe venda para o veículo.
-        
-        Args:
-            vehicle_id: ID do veículo
-            exclude_id: ID da venda a ser excluída da verificação
-            
-        Returns:
-            bool: True se existir venda para o veículo
-        """
-        pass
-
-    @abstractmethod
-    async def count_by_client(self, client_id: UUID) -> int:
-        """
-        Conta vendas por cliente.
-        
-        Args:
-            client_id: ID do cliente
-            
-        Returns:
-            int: Número de vendas do cliente
-        """
-        pass
-
-    @abstractmethod
-    async def count_by_employee(self, employee_id: UUID) -> int:
-        """
-        Conta vendas por funcionário.
-        
-        Args:
-            employee_id: ID do funcionário
-            
-        Returns:
-            int: Número de vendas do funcionário
-        """
-        pass
-
-    @abstractmethod
-    async def count_by_status(self, status: str) -> int:
-        """
-        Conta vendas por status.
-        
-        Args:
-            status: Status das vendas
-            
-        Returns:
-            int: Número de vendas com o status
-        """
-        pass
-
-    @abstractmethod
-    async def get_total_sales_amount(self, start_date: Optional[date] = None, end_date: Optional[date] = None) -> Decimal:
-        """
-        Calcula valor total de vendas em período.
-        
-        Args:
-            start_date: Data inicial (opcional)
-            end_date: Data final (opcional)
-            
-        Returns:
-            Decimal: Valor total das vendas
-        """
-        pass
-
-    @abstractmethod
-    async def get_total_commission_amount(self, employee_id: Optional[UUID] = None, 
-                                         start_date: Optional[date] = None, 
-                                         end_date: Optional[date] = None) -> Decimal:
-        """
-        Calcula valor total de comissões.
-        
-        Args:
-            employee_id: ID do funcionário (opcional, para filtrar)
-            start_date: Data inicial (opcional)
-            end_date: Data final (opcional)
-            
-        Returns:
-            Decimal: Valor total das comissões
-        """
-        pass
-
-    @abstractmethod
     async def get_sales_statistics(self, start_date: Optional[date] = None, 
-                                  end_date: Optional[date] = None) -> Dict[str, Any]:
+                                  end_date: Optional[date] = None) -> dict:
         """
         Busca estatísticas de vendas.
         
@@ -265,23 +208,6 @@ class SaleRepository(ABC):
             end_date: Data final (opcional)
             
         Returns:
-            dict: Estatísticas das vendas (total, média, por status, etc.)
-        """
-        pass
-
-    @abstractmethod
-    async def get_top_performers(self, start_date: Optional[date] = None, 
-                                end_date: Optional[date] = None, 
-                                limit: int = 10) -> List[Dict[str, Any]]:
-        """
-        Busca top vendedores por performance.
-        
-        Args:
-            start_date: Data inicial (opcional)
-            end_date: Data final (opcional)
-            limit: Número máximo de resultados
-            
-        Returns:
-            List[Dict]: Lista de vendedores com estatísticas
+            dict: Estatísticas das vendas
         """
         pass

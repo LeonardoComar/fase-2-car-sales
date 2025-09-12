@@ -1,20 +1,24 @@
-from typing import Optional
-from decimal import Decimal
-from datetime import date, datetime
-from uuid import UUID, uuid4
+"""
+Entidade Sale - Domain Layer
 
-from src.domain.exceptions import ValidationError
+Entidade que representa uma venda no domínio da aplicação.
+
+Aplicando princípios SOLID:
+- SRP: Responsável apenas por representar e validar dados de vendas
+- OCP: Extensível para novas funcionalidades sem modificar código existente
+- LSP: Pode ser substituída por especializações
+- ISP: Interface específica e coesa
+- DIP: Não depende de detalhes de implementação
+"""
+
+from typing import Optional
+from datetime import datetime, date
+from decimal import Decimal
 
 
 class Sale:
     """
-    Entidade Sale que representa uma venda na concessionária.
-    
-    Aplicando o princípio Single Responsibility Principle (SRP) - 
-    responsável apenas pelas regras de negócio relacionadas a vendas.
-    
-    Aplicando o princípio Open/Closed Principle (OCP) - 
-    pode ser estendida sem modificar código existente.
+    Entidade Sale que representa uma venda no domínio da aplicação.
     """
     
     # Status possíveis para vendas
@@ -38,26 +42,46 @@ class Sale:
         PAYMENT_A_VISTA, PAYMENT_CARTAO_CREDITO, PAYMENT_CARTAO_DEBITO,
         PAYMENT_FINANCIAMENTO, PAYMENT_CONSORCIO, PAYMENT_PIX
     ]
-    
+
     def __init__(
         self,
-        client_id: UUID,
-        employee_id: UUID,
-        vehicle_id: UUID,
+        client_id: int,
+        employee_id: int,
+        vehicle_id: int,
         total_amount: Decimal,
         payment_method: str,
         sale_date: date,
-        id: Optional[UUID] = None,
         status: str = STATUS_PENDENTE,
         notes: Optional[str] = None,
         discount_amount: Decimal = Decimal('0.00'),
         tax_amount: Decimal = Decimal('0.00'),
         commission_rate: Decimal = Decimal('0.00'),
-        commission_amount: Optional[Decimal] = None,
+        commission_amount: Decimal = Decimal('0.00'),
+        id: Optional[int] = None,
         created_at: Optional[datetime] = None,
         updated_at: Optional[datetime] = None
     ):
-        self.id = id or uuid4()
+        """
+        Inicializa uma nova instância de Sale.
+        
+        Args:
+            client_id: ID do cliente
+            employee_id: ID do funcionário
+            vehicle_id: ID do veículo
+            total_amount: Valor total da venda
+            payment_method: Forma de pagamento
+            sale_date: Data da venda
+            status: Status da venda
+            notes: Observações da venda (opcional)
+            discount_amount: Valor do desconto
+            tax_amount: Valor dos impostos
+            commission_rate: Taxa de comissão
+            commission_amount: Valor da comissão
+            id: ID da venda (opcional, para entidades já persistidas)
+            created_at: Data de criação (opcional)
+            updated_at: Data de atualização (opcional)
+        """
+        self.id = id
         self.client_id = client_id
         self.employee_id = employee_id
         self.vehicle_id = vehicle_id
@@ -69,25 +93,16 @@ class Sale:
         self.discount_amount = discount_amount
         self.tax_amount = tax_amount
         self.commission_rate = commission_rate
-        
-        # Calcular comissão se não fornecida
-        if commission_amount is None:
-            self.commission_amount = self._calculate_commission()
-        else:
-            self.commission_amount = commission_amount
-            
-        self.created_at = created_at or datetime.utcnow()
-        self.updated_at = updated_at or datetime.utcnow()
-        
-        # Validar dados
-        self._validate()
-    
+        self.commission_amount = commission_amount
+        self.created_at = created_at
+        self.updated_at = updated_at
+
     @classmethod
     def create_sale(
         cls,
-        client_id: UUID,
-        employee_id: UUID,
-        vehicle_id: UUID,
+        client_id: int,
+        employee_id: int,
+        vehicle_id: int,
         total_amount: Decimal,
         payment_method: str,
         sale_date: date,
@@ -106,17 +121,17 @@ class Sale:
             total_amount: Valor total da venda
             payment_method: Forma de pagamento
             sale_date: Data da venda
-            notes: Observações opcionais
+            notes: Observações da venda (opcional)
             discount_amount: Valor do desconto
             tax_amount: Valor dos impostos
-            commission_rate: Taxa de comissão (%)
+            commission_rate: Taxa de comissão
             
         Returns:
-            Sale: Nova instância da venda
-            
-        Raises:
-            ValidationError: Se dados inválidos
+            Sale: Nova instância de Sale
         """
+        # Calcular comissão automaticamente
+        commission_amount = (total_amount - discount_amount) * (commission_rate / 100)
+        
         return cls(
             client_id=client_id,
             employee_id=employee_id,
@@ -128,9 +143,10 @@ class Sale:
             notes=notes,
             discount_amount=discount_amount,
             tax_amount=tax_amount,
-            commission_rate=commission_rate
+            commission_rate=commission_rate,
+            commission_amount=commission_amount
         )
-    
+
     def update_fields(
         self,
         total_amount: Optional[Decimal] = None,
@@ -141,22 +157,19 @@ class Sale:
         discount_amount: Optional[Decimal] = None,
         tax_amount: Optional[Decimal] = None,
         commission_rate: Optional[Decimal] = None
-    ) -> None:
+    ):
         """
         Atualiza os campos da venda.
         
         Args:
-            total_amount: Novo valor total
-            payment_method: Nova forma de pagamento
-            status: Novo status
-            sale_date: Nova data da venda
-            notes: Novas observações
-            discount_amount: Novo valor do desconto
-            tax_amount: Novo valor dos impostos
-            commission_rate: Nova taxa de comissão
-            
-        Raises:
-            ValidationError: Se dados inválidos
+            total_amount: Valor total da venda (opcional)
+            payment_method: Forma de pagamento (opcional)
+            status: Status da venda (opcional)
+            sale_date: Data da venda (opcional)
+            notes: Observações da venda (opcional)
+            discount_amount: Valor do desconto (opcional)
+            tax_amount: Valor dos impostos (opcional)
+            commission_rate: Taxa de comissão (opcional)
         """
         if total_amount is not None:
             self.total_amount = total_amount
@@ -174,64 +187,25 @@ class Sale:
             self.tax_amount = tax_amount
         if commission_rate is not None:
             self.commission_rate = commission_rate
-            # Recalcular comissão quando taxa muda
-            self.commission_amount = self._calculate_commission()
-        
-        self.updated_at = datetime.utcnow()
-        self._validate()
-    
-    def confirm_sale(self) -> None:
-        """
-        Confirma a venda.
-        
-        Raises:
-            ValidationError: Se venda não pode ser confirmada
-        """
-        if self.status != self.STATUS_PENDENTE:
-            raise ValidationError("Apenas vendas pendentes podem ser confirmadas")
-        
+            # Recalcular comissão
+            self.commission_amount = (self.total_amount - self.discount_amount) * (self.commission_rate / 100)
+
+    def confirm_sale(self):
+        """Confirma a venda."""
         self.status = self.STATUS_CONFIRMADA
-        self.updated_at = datetime.utcnow()
-    
-    def mark_as_paid(self) -> None:
-        """
-        Marca a venda como paga.
-        
-        Raises:
-            ValidationError: Se venda não pode ser marcada como paga
-        """
-        if self.status not in [self.STATUS_CONFIRMADA, self.STATUS_PENDENTE]:
-            raise ValidationError("Apenas vendas confirmadas ou pendentes podem ser marcadas como pagas")
-        
+
+    def mark_as_paid(self):
+        """Marca a venda como paga."""
         self.status = self.STATUS_PAGA
-        self.updated_at = datetime.utcnow()
-    
-    def mark_as_delivered(self) -> None:
-        """
-        Marca a venda como entregue.
-        
-        Raises:
-            ValidationError: Se venda não pode ser entregue
-        """
-        if self.status != self.STATUS_PAGA:
-            raise ValidationError("Apenas vendas pagas podem ser marcadas como entregues")
-        
+
+    def mark_as_delivered(self):
+        """Marca a venda como entregue."""
         self.status = self.STATUS_ENTREGUE
-        self.updated_at = datetime.utcnow()
-    
-    def cancel_sale(self) -> None:
-        """
-        Cancela a venda.
-        
-        Raises:
-            ValidationError: Se venda não pode ser cancelada
-        """
-        if self.status == self.STATUS_ENTREGUE:
-            raise ValidationError("Vendas entregues não podem ser canceladas")
-        
+
+    def cancel_sale(self):
+        """Cancela a venda."""
         self.status = self.STATUS_CANCELADA
-        self.updated_at = datetime.utcnow()
-    
+
     def calculate_final_amount(self) -> Decimal:
         """
         Calcula o valor final da venda (total - desconto + impostos).
@@ -240,102 +214,50 @@ class Sale:
             Decimal: Valor final da venda
         """
         return self.total_amount - self.discount_amount + self.tax_amount
-    
+
     def is_active(self) -> bool:
         """
         Verifica se a venda está ativa (não cancelada).
         
         Returns:
-            bool: True se ativa, False se cancelada
+            bool: True se a venda está ativa
         """
         return self.status != self.STATUS_CANCELADA
-    
+
     def is_completed(self) -> bool:
         """
         Verifica se a venda foi completada (entregue).
         
         Returns:
-            bool: True se completada, False caso contrário
+            bool: True se a venda foi completada
         """
         return self.status == self.STATUS_ENTREGUE
-    
-    def _calculate_commission(self) -> Decimal:
-        """
-        Calcula o valor da comissão.
-        
-        Returns:
-            Decimal: Valor da comissão
-        """
-        base_amount = self.total_amount - self.discount_amount
-        return base_amount * (self.commission_rate / 100)
-    
-    def _validate(self) -> None:
-        """
-        Valida os dados da venda.
-        
-        Raises:
-            ValidationError: Se dados inválidos
-        """
-        # Validar valores monetários
-        if self.total_amount <= 0:
-            raise ValidationError("Valor total deve ser maior que zero")
-        
-        if self.discount_amount < 0:
-            raise ValidationError("Desconto não pode ser negativo")
-        
-        if self.discount_amount > self.total_amount:
-            raise ValidationError("Desconto não pode ser maior que o valor total")
-        
-        if self.tax_amount < 0:
-            raise ValidationError("Valor do imposto não pode ser negativo")
-        
-        if self.commission_rate < 0 or self.commission_rate > 100:
-            raise ValidationError("Taxa de comissão deve estar entre 0 e 100%")
-        
-        # Validar status
-        if not self.is_valid_status(self.status):
-            raise ValidationError(f"Status inválido: {self.status}")
-        
-        # Validar forma de pagamento
-        if not self.is_valid_payment_method(self.payment_method):
-            raise ValidationError(f"Forma de pagamento inválida: {self.payment_method}")
-        
-        # Validar observações
-        if self.notes and len(self.notes) > 1000:
-            raise ValidationError("Observações não podem ter mais de 1000 caracteres")
-        
-        # Validar data da venda
-        if self.sale_date > date.today():
-            raise ValidationError("Data da venda não pode ser no futuro")
-    
+
     @classmethod
     def is_valid_status(cls, status: str) -> bool:
         """
         Verifica se o status é válido.
         
         Args:
-            status: Status a ser verificado
+            status: Status a ser validado
             
         Returns:
-            bool: True se válido, False caso contrário
+            bool: True se o status é válido
         """
         return status in cls.VALID_STATUSES
-    
+
     @classmethod
     def is_valid_payment_method(cls, payment_method: str) -> bool:
         """
         Verifica se a forma de pagamento é válida.
         
         Args:
-            payment_method: Forma de pagamento a ser verificada
+            payment_method: Forma de pagamento a ser validada
             
         Returns:
-            bool: True se válida, False caso contrário
+            bool: True se a forma de pagamento é válida
         """
         return payment_method in cls.VALID_PAYMENT_METHODS
-    
+
     def __repr__(self):
         return f"<Sale(id={self.id}, client_id={self.client_id}, total={self.total_amount}, status='{self.status}')>"
-    
-    def __str__(self):
-        return f"Venda {self.id}: {self.total_amount} ({self.status})"

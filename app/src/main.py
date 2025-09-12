@@ -129,7 +129,8 @@ def create_app() -> FastAPI:
         ```
         """,
         version=settings.app_version,
-        lifespan=lifespan
+        lifespan=lifespan,
+        redirect_slashes=False
     )
     
     # Configurar arquivos estáticos

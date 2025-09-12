@@ -11,7 +11,7 @@ from .user_gateway import UserGateway
 from .car_gateway import CarGateway
 from .client_gateway import ClientGateway
 from .motorcycle_gateway import MotorcycleGateway
-# from .employee_gateway import EmployeeGateway  # TODO: Implementar quando necessário
+from .employee_gateway import EmployeeGateway  # Habilitando EmployeeGateway
 from .sale_gateway import SaleGateway
 from .message_gateway import MessageGateway
 
@@ -20,7 +20,7 @@ __all__ = [
     "CarGateway",
     "ClientGateway",
     "MotorcycleGateway",
-    # "EmployeeGateway",  # TODO: Implementar quando necessário
+    "EmployeeGateway",  # Habilitando EmployeeGateway
     "SaleGateway",
     "MessageGateway"
 ]

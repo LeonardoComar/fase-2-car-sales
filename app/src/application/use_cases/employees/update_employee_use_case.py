@@ -100,10 +100,22 @@ class UpdateEmployeeUseCase:
             if not result_employee:
                 return None
             
-            # Buscar endereço atualizado se existir
+            # Verificar se há dados de endereço anexados
             updated_address = None
-            if result_employee.address_id and hasattr(self._employee_repository, 'get_address_by_id'):
-                updated_address = self._employee_repository.get_address_by_id(result_employee.address_id)
+            if hasattr(result_employee, '_address_data') and result_employee._address_data:
+                from datetime import datetime
+                
+                addr_data = result_employee._address_data
+                updated_address = Address(
+                    id=addr_data['id'],
+                    street=addr_data['street'],
+                    city=addr_data['city'],
+                    state=addr_data['state'],
+                    zip_code=addr_data['zip_code'],
+                    country=addr_data['country'],
+                    created_at=addr_data['created_at'],
+                    updated_at=addr_data['updated_at']
+                )
             
             # Converter para DTO de resposta
             return self._convert_to_response_dto(result_employee, updated_address)

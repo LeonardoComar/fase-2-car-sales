@@ -58,10 +58,23 @@ class GetEmployeeUseCase:
             if not employee:
                 return None
             
-            # Buscar endereço se funcionário tiver address_id
+            # Verificar se há dados de endereço anexados
             address = None
-            if employee.address_id and hasattr(self._employee_repository, 'get_address_by_id'):
-                address = self._employee_repository.get_address_by_id(employee.address_id)
+            if hasattr(employee, '_address_data') and employee._address_data:
+                from src.domain.entities.address import Address
+                from datetime import datetime
+                
+                addr_data = employee._address_data
+                address = Address(
+                    id=addr_data['id'],
+                    street=addr_data['street'],
+                    city=addr_data['city'],
+                    state=addr_data['state'],
+                    zip_code=addr_data['zip_code'],
+                    country=addr_data['country'],
+                    created_at=addr_data['created_at'],
+                    updated_at=addr_data['updated_at']
+                )
             
             # Converter para DTO de resposta
             return self._convert_to_response_dto(employee, address)

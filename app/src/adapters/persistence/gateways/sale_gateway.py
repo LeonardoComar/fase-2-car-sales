@@ -1,576 +1,316 @@
-from typing import List, Optional, Dict, Any
-import logging
-from uuid import UUID
-from datetime import date
-from decimal import Decimal
+"""
+Gateway para Vendas - Infrastructure Layer
 
+Implementação simplificada do repositório de vendas.
+"""
+
+from typing import List, Optional
+from datetime import datetime
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy import func, and_
-
+from sqlalchemy import and_, or_, func, desc
 from src.domain.entities.sale import Sale
 from src.domain.ports.sale_repository import SaleRepository
-from src.domain.exceptions import SaleNotFoundError, DatabaseError
 from src.infrastructure.database.models.sale_model import SaleModel
+from src.application.dtos.sale_dto import SaleStatisticsResponse
+from decimal import Decimal
+import logging
 
 logger = logging.getLogger(__name__)
 
 
 class SaleGateway(SaleRepository):
-    """
-    Gateway para persistência de vendas usando SQLAlchemy.
+    """Gateway simplificado para operações de vendas."""
     
-    Implementa o padrão Gateway e Interface Segregation Principle (ISP),
-    fornecendo implementação concreta do SaleRepository.
-    """
-
-    def __init__(self, db_session: Session):
+    def __init__(self, session: Session):
         """
-        Inicializa o gateway com uma sessão de banco de dados.
+        Inicializa o gateway com uma sessão do banco de dados.
         
         Args:
-            db_session: Sessão SQLAlchemy para operações de banco
+            session: Sessão do SQLAlchemy
         """
-        self.db_session = db_session
-
-    async def save(self, sale: Sale) -> Sale:
-        """
-        Salva uma venda no banco de dados.
-        
-        Args:
-            sale: Entidade Sale a ser salva
-            
-        Returns:
-            Sale: Entidade salva com dados atualizados
-            
-        Raises:
-            DatabaseError: Se houver erro na operação de banco
-        """
+        self._session = session
+    
+    async def create_sale(self, sale: Sale) -> Sale:
+        """Cria uma nova venda."""
         try:
-            logger.info(f"Salvando venda - ID: {sale.id}")
+            sale_model = SaleModel(
+                client_id=sale.client_id,
+                employee_id=sale.employee_id,
+                vehicle_id=sale.vehicle_id,
+                total_amount=sale.total_amount,
+                payment_method=sale.payment_method,
+                status=sale.status,
+                sale_date=sale.sale_date,
+                notes=sale.notes,
+                discount_amount=sale.discount_amount,
+                tax_amount=sale.tax_amount,
+                commission_rate=sale.commission_rate
+            )
             
-            # Verifica se é update ou create
-            existing_sale = self.db_session.query(SaleModel).filter_by(id=sale.id).first()
+            self._session.add(sale_model)
+            self._session.commit()
+            self._session.refresh(sale_model)
             
-            if existing_sale:
-                # Update
-                existing_sale.client_id = sale.client_id
-                existing_sale.employee_id = sale.employee_id
-                existing_sale.vehicle_id = sale.vehicle_id
-                existing_sale.sale_date = sale.sale_date
-                existing_sale.sale_price = sale.total_amount
-                existing_sale.discount = sale.discount_amount
-                existing_sale.final_price = sale.total_amount - sale.discount_amount
-                existing_sale.payment_method = sale.payment_method
-                existing_sale.status = sale.status
-                existing_sale.notes = sale.notes
-                
-                sale_model = existing_sale
-            else:
-                # Create
-                sale_model = self._entity_to_model(sale)
-                self.db_session.add(sale_model)
-            
-            self.db_session.commit()
-            self.db_session.refresh(sale_model)
-            
-            logger.info(f"Venda salva com sucesso - ID: {sale.id}")
             return self._model_to_entity(sale_model)
             
-        except SQLAlchemyError as e:
-            self.db_session.rollback()
-            logger.error(f"Erro ao salvar venda: {str(e)}")
-            raise DatabaseError(f"Erro ao salvar venda: {str(e)}")
-
-    async def find_by_id(self, sale_id: UUID) -> Optional[Sale]:
-        """
-        Busca venda por ID.
-        
-        Args:
-            sale_id: UUID da venda
-            
-        Returns:
-            Optional[Sale]: Venda encontrada ou None
-            
-        Raises:
-            DatabaseError: Se houver erro na operação de banco
-        """
+        except Exception as e:
+            self._session.rollback()
+            logger.error(f"Erro ao criar venda: {str(e)}")
+            raise Exception(f"Erro ao criar venda: {str(e)}")
+    
+    async def get_sale_by_id(self, sale_id: int) -> Optional[Sale]:
+        """Busca venda por ID."""
         try:
-            logger.info(f"Buscando venda por ID: {sale_id}")
+            sale_model = self._session.query(SaleModel).filter(SaleModel.id == sale_id).first()
             
-            sale_model = self.db_session.query(SaleModel).filter_by(id=sale_id).first()
-            
-            if sale_model:
-                logger.info(f"Venda encontrada: {sale_model.id}")
-                return self._model_to_entity(sale_model)
-            
-            logger.info(f"Venda não encontrada para ID: {sale_id}")
-            return None
-            
-        except SQLAlchemyError as e:
-            logger.error(f"Erro ao buscar venda por ID: {str(e)}")
-            raise DatabaseError(f"Erro ao buscar venda: {str(e)}")
-
-    async def find_by_criteria(self, **kwargs) -> List[Sale]:
-        """
-        Busca vendas por múltiplos critérios.
-        
-        Args:
-            **kwargs: Critérios de busca
-            
-        Returns:
-            List[Sale]: Lista de vendas encontradas
-        """
-        try:
-            logger.info(f"Buscando vendas por critérios: {kwargs}")
-            
-            query = self.db_session.query(SaleModel)
-            
-            if 'client_id' in kwargs:
-                query = query.filter(SaleModel.client_id == kwargs['client_id'])
-            
-            if 'employee_id' in kwargs:
-                query = query.filter(SaleModel.employee_id == kwargs['employee_id'])
-                
-            if 'status' in kwargs:
-                query = query.filter(SaleModel.status == kwargs['status'])
-                
-            if 'payment_method' in kwargs:
-                query = query.filter(SaleModel.payment_method == kwargs['payment_method'])
-                
-            if 'start_date' in kwargs:
-                query = query.filter(SaleModel.sale_date >= kwargs['start_date'])
-                
-            if 'end_date' in kwargs:
-                query = query.filter(SaleModel.sale_date <= kwargs['end_date'])
-            
-            # Paginação
-            if 'skip' in kwargs:
-                query = query.offset(kwargs['skip'])
-                
-            if 'limit' in kwargs:
-                query = query.limit(kwargs['limit'])
-            
-            sale_models = query.all()
-            sales = [self._model_to_entity(model) for model in sale_models]
-            
-            logger.info(f"Encontradas {len(sales)} vendas com os critérios aplicados")
-            return sales
-            
-        except SQLAlchemyError as e:
-            logger.error(f"Erro ao buscar vendas por critérios: {str(e)}")
-            raise DatabaseError(f"Erro ao buscar vendas: {str(e)}")
-
-    async def find_by_client(self, client_id: UUID, **kwargs) -> List[Sale]:
-        """
-        Busca vendas por cliente.
-        
-        Args:
-            client_id: ID do cliente
-            **kwargs: Parâmetros adicionais
-            
-        Returns:
-            List[Sale]: Lista de vendas encontradas
-        """
-        return await self.find_by_criteria(client_id=client_id, **kwargs)
-
-    async def find_by_employee(self, employee_id: UUID, **kwargs) -> List[Sale]:
-        """
-        Busca vendas por funcionário.
-        
-        Args:
-            employee_id: ID do funcionário
-            **kwargs: Parâmetros adicionais
-            
-        Returns:
-            List[Sale]: Lista de vendas encontradas
-        """
-        return await self.find_by_criteria(employee_id=employee_id, **kwargs)
-
-    async def find_by_vehicle(self, vehicle_id: UUID) -> Optional[Sale]:
-        """
-        Busca venda por veículo.
-        
-        Args:
-            vehicle_id: ID do veículo
-            
-        Returns:
-            Optional[Sale]: Venda encontrada ou None
-        """
-        try:
-            logger.info(f"Buscando venda por veículo: {vehicle_id}")
-            
-            sale_model = self.db_session.query(SaleModel).filter_by(vehicle_id=vehicle_id).first()
-            
-            if sale_model:
-                logger.info(f"Venda encontrada para veículo: {vehicle_id}")
-                return self._model_to_entity(sale_model)
-            
-            return None
-            
-        except SQLAlchemyError as e:
-            logger.error(f"Erro ao buscar venda por veículo: {str(e)}")
-            raise DatabaseError(f"Erro ao buscar venda: {str(e)}")
-
-    async def find_by_status(self, status: str, **kwargs) -> List[Sale]:
-        """
-        Busca vendas por status.
-        
-        Args:
-            status: Status das vendas
-            **kwargs: Parâmetros adicionais
-            
-        Returns:
-            List[Sale]: Lista de vendas encontradas
-        """
-        return await self.find_by_criteria(status=status, **kwargs)
-
-    async def find_by_date_range(self, start_date: date, end_date: date, **kwargs) -> List[Sale]:
-        """
-        Busca vendas por período.
-        
-        Args:
-            start_date: Data inicial
-            end_date: Data final
-            **kwargs: Parâmetros adicionais
-            
-        Returns:
-            List[Sale]: Lista de vendas encontradas
-        """
-        return await self.find_by_criteria(start_date=start_date, end_date=end_date, **kwargs)
-
-    async def find_by_payment_method(self, payment_method: str, **kwargs) -> List[Sale]:
-        """
-        Busca vendas por forma de pagamento.
-        
-        Args:
-            payment_method: Forma de pagamento
-            **kwargs: Parâmetros adicionais
-            
-        Returns:
-            List[Sale]: Lista de vendas encontradas
-        """
-        return await self.find_by_criteria(payment_method=payment_method, **kwargs)
-
-    async def delete(self, sale_id: UUID) -> None:
-        """
-        Remove uma venda do banco de dados.
-        
-        Args:
-            sale_id: ID da venda a ser removida
-            
-        Raises:
-            SaleNotFoundError: Se venda não encontrada
-            DatabaseError: Se houver erro na operação de banco
-        """
-        try:
-            logger.info(f"Removendo venda com ID: {sale_id}")
-            
-            sale_model = self.db_session.query(SaleModel).filter_by(id=sale_id).first()
             if not sale_model:
-                raise SaleNotFoundError(f"Venda com ID {sale_id} não encontrada")
+                return None
+                
+            return self._model_to_entity(sale_model)
             
-            self.db_session.delete(sale_model)
-            self.db_session.commit()
-            
-            logger.info(f"Venda removida com sucesso - ID: {sale_id}")
-            
-        except SaleNotFoundError:
-            self.db_session.rollback()
-            raise
-        except SQLAlchemyError as e:
-            self.db_session.rollback()
-            logger.error(f"Erro ao remover venda: {str(e)}")
-            raise DatabaseError(f"Erro ao remover venda: {str(e)}")
-
-    async def exists_by_id(self, sale_id: UUID) -> bool:
-        """
-        Verifica se existe venda com o ID.
-        
-        Args:
-            sale_id: ID a ser verificado
-            
-        Returns:
-            bool: True se existir venda com o ID
-        """
+        except Exception as e:
+            logger.error(f"Erro ao buscar venda por ID: {str(e)}")
+            raise Exception(f"Erro ao buscar venda: {str(e)}")
+    
+    async def update_sale(self, sale_id: int, sale: Sale) -> Optional[Sale]:
+        """Atualiza uma venda."""
         try:
-            count = self.db_session.query(SaleModel).filter_by(id=sale_id).count()
-            return count > 0
-        except SQLAlchemyError as e:
-            logger.error(f"Erro ao verificar existência de venda: {str(e)}")
-            raise DatabaseError(f"Erro ao verificar venda: {str(e)}")
-
-    async def exists_by_vehicle(self, vehicle_id: UUID, exclude_id: Optional[UUID] = None) -> bool:
-        """
-        Verifica se existe venda para o veículo.
-        
-        Args:
-            vehicle_id: ID do veículo
-            exclude_id: ID da venda a ser excluída da verificação
+            sale_model = self._session.query(SaleModel).filter(SaleModel.id == sale_id).first()
             
-        Returns:
-            bool: True se existir venda para o veículo
-        """
+            if not sale_model:
+                return None
+            
+            # Atualizar campos
+            sale_model.client_id = sale.client_id
+            sale_model.employee_id = sale.employee_id
+            sale_model.vehicle_id = sale.vehicle_id
+            sale_model.total_amount = sale.total_amount
+            sale_model.payment_method = sale.payment_method
+            sale_model.status = sale.status
+            sale_model.sale_date = sale.sale_date
+            sale_model.notes = sale.notes
+            sale_model.discount_amount = sale.discount_amount
+            sale_model.tax_amount = sale.tax_amount
+            sale_model.commission_rate = sale.commission_rate
+            
+            self._session.commit()
+            self._session.refresh(sale_model)
+            
+            return self._model_to_entity(sale_model)
+            
+        except Exception as e:
+            self._session.rollback()
+            logger.error(f"Erro ao atualizar venda: {str(e)}")
+            raise Exception(f"Erro ao atualizar venda: {str(e)}")
+    
+    async def delete_sale(self, sale_id: int) -> bool:
+        """Exclui uma venda."""
         try:
-            query = self.db_session.query(SaleModel).filter_by(vehicle_id=vehicle_id)
+            sale_model = self._session.query(SaleModel).filter(SaleModel.id == sale_id).first()
             
-            if exclude_id:
-                query = query.filter(SaleModel.id != exclude_id)
+            if not sale_model:
+                return False
             
-            count = query.count()
-            return count > 0
-        except SQLAlchemyError as e:
-            logger.error(f"Erro ao verificar venda por veículo: {str(e)}")
-            raise DatabaseError(f"Erro ao verificar venda: {str(e)}")
-
-    async def count_by_client(self, client_id: UUID) -> int:
-        """
-        Conta vendas por cliente.
-        
-        Args:
-            client_id: ID do cliente
+            self._session.delete(sale_model)
+            self._session.commit()
             
-        Returns:
-            int: Número de vendas do cliente
-        """
+            return True
+            
+        except Exception as e:
+            self._session.rollback()
+            logger.error(f"Erro ao excluir venda: {str(e)}")
+            raise Exception(f"Erro ao excluir venda: {str(e)}")
+    
+    async def get_sales_by_filters(
+        self,
+        client_id: Optional[int] = None,
+        employee_id: Optional[int] = None,
+        status: Optional[str] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        payment_method: Optional[str] = None,
+        skip: int = 0,
+        limit: int = 100
+    ) -> List[Sale]:
+        """Lista vendas com filtros."""
         try:
-            return self.db_session.query(SaleModel).filter_by(client_id=client_id).count()
-        except SQLAlchemyError as e:
-            logger.error(f"Erro ao contar vendas por cliente: {str(e)}")
-            raise DatabaseError(f"Erro ao contar vendas: {str(e)}")
-
-    async def count_by_employee(self, employee_id: UUID) -> int:
-        """
-        Conta vendas por funcionário.
-        
-        Args:
-            employee_id: ID do funcionário
+            query = self._session.query(SaleModel)
             
-        Returns:
-            int: Número de vendas do funcionário
-        """
-        try:
-            return self.db_session.query(SaleModel).filter_by(employee_id=employee_id).count()
-        except SQLAlchemyError as e:
-            logger.error(f"Erro ao contar vendas por funcionário: {str(e)}")
-            raise DatabaseError(f"Erro ao contar vendas: {str(e)}")
-
-    async def count_by_status(self, status: str) -> int:
-        """
-        Conta vendas por status.
-        
-        Args:
-            status: Status das vendas
-            
-        Returns:
-            int: Número de vendas com o status
-        """
-        try:
-            return self.db_session.query(SaleModel).filter_by(status=status).count()
-        except SQLAlchemyError as e:
-            logger.error(f"Erro ao contar vendas por status: {str(e)}")
-            raise DatabaseError(f"Erro ao contar vendas: {str(e)}")
-
-    async def get_total_sales_amount(self, start_date: Optional[date] = None, end_date: Optional[date] = None) -> Decimal:
-        """
-        Calcula valor total de vendas em período.
-        
-        Args:
-            start_date: Data inicial (opcional)
-            end_date: Data final (opcional)
-            
-        Returns:
-            Decimal: Valor total das vendas
-        """
-        try:
-            query = self.db_session.query(func.sum(SaleModel.final_price))
-            
+            # Aplicar filtros
+            if client_id:
+                query = query.filter(SaleModel.client_id == client_id)
+            if employee_id:
+                query = query.filter(SaleModel.employee_id == employee_id)
+            if status:
+                query = query.filter(SaleModel.status == status)
             if start_date:
                 query = query.filter(SaleModel.sale_date >= start_date)
-            
             if end_date:
                 query = query.filter(SaleModel.sale_date <= end_date)
+            if payment_method:
+                query = query.filter(SaleModel.payment_method == payment_method)
             
-            result = query.scalar()
-            return Decimal(str(result)) if result else Decimal('0.00')
+            # Paginação e ordenação
+            sales = query.order_by(desc(SaleModel.sale_date)).offset(skip).limit(limit).all()
             
-        except SQLAlchemyError as e:
-            logger.error(f"Erro ao calcular total de vendas: {str(e)}")
-            raise DatabaseError(f"Erro ao calcular vendas: {str(e)}")
-
-    async def get_total_commission_amount(self, employee_id: Optional[UUID] = None, 
-                                         start_date: Optional[date] = None, 
-                                         end_date: Optional[date] = None) -> Decimal:
-        """
-        Calcula valor total de comissões.
-        
-        Args:
-            employee_id: ID do funcionário (opcional)
-            start_date: Data inicial (opcional)
-            end_date: Data final (opcional)
+            return [self._model_to_entity(sale) for sale in sales]
             
-        Returns:
-            Decimal: Valor total das comissões
-        """
+        except Exception as e:
+            logger.error(f"Erro ao listar vendas: {str(e)}")
+            raise Exception(f"Erro ao listar vendas: {str(e)}")
+    
+    async def get_sales_by_client(self, client_id: int, skip: int = 0, limit: int = 100) -> List[Sale]:
+        """Busca vendas por cliente."""
+        return await self.get_sales_by_filters(client_id=client_id, skip=skip, limit=limit)
+    
+    async def get_sales_by_employee(self, employee_id: int, skip: int = 0, limit: int = 100) -> List[Sale]:
+        """Busca vendas por funcionário."""
+        return await self.get_sales_by_filters(employee_id=employee_id, skip=skip, limit=limit)
+    
+    async def get_sales_by_status(self, status: str, skip: int = 0, limit: int = 100) -> List[Sale]:
+        """Busca vendas por status."""
+        return await self.get_sales_by_filters(status=status, skip=skip, limit=limit)
+    
+    async def get_sales_by_date_range(
+        self, 
+        start_date: datetime, 
+        end_date: datetime, 
+        skip: int = 0, 
+        limit: int = 100
+    ) -> List[Sale]:
+        """Busca vendas por período."""
+        return await self.get_sales_by_filters(
+            start_date=start_date, 
+            end_date=end_date, 
+            skip=skip, 
+            limit=limit
+        )
+    
+    async def get_sales_by_payment_method(
+        self, 
+        payment_method: str, 
+        skip: int = 0, 
+        limit: int = 100
+    ) -> List[Sale]:
+        """Busca vendas por método de pagamento."""
+        return await self.get_sales_by_filters(payment_method=payment_method, skip=skip, limit=limit)
+    
+    async def get_all_sales(self, skip: int = 0, limit: int = 100, order_by_value: Optional[str] = None) -> List[Sale]:
+        """Busca todas as vendas com paginação."""
         try:
-            # Como não temos campo de comissão no modelo, calculamos 5% do valor final
-            query = self.db_session.query(func.sum(SaleModel.final_price * 0.05))
+            query = self._session.query(SaleModel)
             
+            # Aplicar ordenação
+            if order_by_value == 'asc':
+                query = query.order_by(SaleModel.total_amount.asc())
+            elif order_by_value == 'desc':
+                query = query.order_by(SaleModel.total_amount.desc())
+            else:
+                query = query.order_by(desc(SaleModel.sale_date))
+            
+            # Paginação
+            sales = query.offset(skip).limit(limit).all()
+            
+            return [self._model_to_entity(sale) for sale in sales]
+            
+        except Exception as e:
+            logger.error(f"Erro ao listar todas as vendas: {str(e)}")
+            raise Exception(f"Erro ao listar vendas: {str(e)}")
+    
+    async def update_sale_status(self, sale_id: int, status: str) -> Optional[Sale]:
+        """Atualiza apenas o status de uma venda."""
+        try:
+            sale_model = self._session.query(SaleModel).filter(SaleModel.id == sale_id).first()
+            
+            if not sale_model:
+                return None
+            
+            sale_model.status = status
+            
+            self._session.commit()
+            self._session.refresh(sale_model)
+            
+            return self._model_to_entity(sale_model)
+            
+        except Exception as e:
+            self._session.rollback()
+            logger.error(f"Erro ao atualizar status da venda: {str(e)}")
+            raise Exception(f"Erro ao atualizar status da venda: {str(e)}")
+    
+    async def get_sales_statistics(
+        self,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        employee_id: Optional[int] = None
+    ) -> SaleStatisticsResponse:
+        """Gera estatísticas de vendas."""
+        try:
+            query = self._session.query(SaleModel)
+            
+            # Aplicar filtros
+            if start_date:
+                query = query.filter(SaleModel.sale_date >= start_date)
+            if end_date:
+                query = query.filter(SaleModel.sale_date <= end_date)
             if employee_id:
                 query = query.filter(SaleModel.employee_id == employee_id)
             
-            if start_date:
-                query = query.filter(SaleModel.sale_date >= start_date)
-            
-            if end_date:
-                query = query.filter(SaleModel.sale_date <= end_date)
-            
-            result = query.scalar()
-            return Decimal(str(result)) if result else Decimal('0.00')
-            
-        except SQLAlchemyError as e:
-            logger.error(f"Erro ao calcular comissões: {str(e)}")
-            raise DatabaseError(f"Erro ao calcular comissões: {str(e)}")
-
-    async def get_sales_statistics(self, start_date: Optional[date] = None, 
-                                  end_date: Optional[date] = None) -> Dict[str, Any]:
-        """
-        Busca estatísticas de vendas.
-        
-        Args:
-            start_date: Data inicial (opcional)
-            end_date: Data final (opcional)
-            
-        Returns:
-            dict: Estatísticas das vendas
-        """
-        try:
-            query = self.db_session.query(SaleModel)
-            
-            if start_date:
-                query = query.filter(SaleModel.sale_date >= start_date)
-            
-            if end_date:
-                query = query.filter(SaleModel.sale_date <= end_date)
-            
             sales = query.all()
             
+            # Calcular estatísticas
             total_sales = len(sales)
-            total_amount = sum(sale.final_price for sale in sales)
-            average_amount = total_amount / total_sales if total_sales > 0 else 0
+            total_revenue = sum(sale.total_amount for sale in sales)
+            total_commission = sum(
+                (sale.total_amount * sale.commission_rate / 100) if sale.commission_rate else Decimal('0')
+                for sale in sales
+            )
+            
+            average_sale_value = total_revenue / total_sales if total_sales > 0 else Decimal('0')
             
             # Estatísticas por status
             status_stats = {}
             for sale in sales:
-                status = sale.status
-                if status not in status_stats:
-                    status_stats[status] = {'count': 0, 'amount': Decimal('0.00')}
-                status_stats[status]['count'] += 1
-                status_stats[status]['amount'] += sale.final_price
+                if sale.status not in status_stats:
+                    status_stats[sale.status] = 0
+                status_stats[sale.status] += 1
             
-            return {
-                'total_sales': total_sales,
-                'total_amount': total_amount,
-                'average_amount': average_amount,
-                'status_statistics': status_stats
-            }
+            # Estatísticas por método de pagamento
+            payment_method_stats = {}
+            for sale in sales:
+                if sale.payment_method not in payment_method_stats:
+                    payment_method_stats[sale.payment_method] = 0
+                payment_method_stats[sale.payment_method] += 1
             
-        except SQLAlchemyError as e:
-            logger.error(f"Erro ao calcular estatísticas: {str(e)}")
-            raise DatabaseError(f"Erro ao calcular estatísticas: {str(e)}")
-
-    async def get_top_performers(self, start_date: Optional[date] = None, 
-                                end_date: Optional[date] = None, 
-                                limit: int = 10) -> List[Dict[str, Any]]:
-        """
-        Busca top vendedores por performance.
-        
-        Args:
-            start_date: Data inicial (opcional)
-            end_date: Data final (opcional)
-            limit: Número máximo de resultados
+            return SaleStatisticsResponse(
+                total_sales=total_sales,
+                total_revenue=total_revenue,
+                total_commission=total_commission,
+                average_sale_value=average_sale_value,
+                sales_by_status=status_stats,
+                sales_by_payment_method=payment_method_stats,
+                period_start=start_date.isoformat() if start_date else "",
+                period_end=end_date.isoformat() if end_date else ""
+            )
             
-        Returns:
-            List[Dict]: Lista de vendedores com estatísticas
-        """
-        try:
-            query = self.db_session.query(
-                SaleModel.employee_id,
-                func.count(SaleModel.id).label('total_sales'),
-                func.sum(SaleModel.final_price).label('total_amount')
-            ).group_by(SaleModel.employee_id)
-            
-            if start_date:
-                query = query.filter(SaleModel.sale_date >= start_date)
-            
-            if end_date:
-                query = query.filter(SaleModel.sale_date <= end_date)
-            
-            results = query.order_by(func.sum(SaleModel.final_price).desc()).limit(limit).all()
-            
-            performers = []
-            for result in results:
-                performers.append({
-                    'employee_id': result.employee_id,
-                    'total_sales': result.total_sales,
-                    'total_amount': result.total_amount
-                })
-            
-            return performers
-            
-        except SQLAlchemyError as e:
-            logger.error(f"Erro ao buscar top performers: {str(e)}")
-            raise DatabaseError(f"Erro ao buscar performers: {str(e)}")
-
-    def _entity_to_model(self, sale: Sale) -> SaleModel:
-        """
-        Converte entidade Sale para modelo SaleModel.
-        
-        Args:
-            sale: Entidade Sale
-            
-        Returns:
-            SaleModel: Modelo para persistência
-        """
-        return SaleModel(
-            id=sale.id,
-            client_id=sale.client_id,
-            employee_id=sale.employee_id,
-            vehicle_id=sale.vehicle_id,
-            vehicle_type="unknown",  # Seria necessário determinar o tipo
-            sale_date=sale.sale_date,
-            sale_price=sale.total_amount,
-            discount=sale.discount_amount,
-            final_price=sale.total_amount - sale.discount_amount,
-            payment_method=sale.payment_method,
-            installments=1,  # Valor padrão
-            status=sale.status,
-            notes=sale.notes
-        )
-
-    def _model_to_entity(self, model: SaleModel) -> Sale:
-        """
-        Converte modelo SaleModel para entidade Sale.
-        
-        Args:
-            model: Modelo SaleModel
-            
-        Returns:
-            Sale: Entidade de domínio
-        """
+        except Exception as e:
+            logger.error(f"Erro ao gerar estatísticas: {str(e)}")
+            raise Exception(f"Erro ao gerar estatísticas: {str(e)}")
+    
+    def _model_to_entity(self, sale_model: SaleModel) -> Sale:
+        """Converte modelo SQLAlchemy para entidade de domínio."""
         return Sale(
-            id=model.id,
-            client_id=model.client_id,
-            employee_id=model.employee_id,
-            vehicle_id=model.vehicle_id,
-            total_amount=model.sale_price,
-            payment_method=model.payment_method,
-            sale_date=model.sale_date,
-            status=model.status,
-            notes=model.notes,
-            discount_amount=model.discount or Decimal('0.00'),
-            tax_amount=Decimal('0.00'),  # Não temos no modelo
-            commission_rate=Decimal('0.05'),  # Padrão 5%
-            created_at=model.created_at,
-            updated_at=model.updated_at
+            id=sale_model.id,
+            client_id=sale_model.client_id,
+            employee_id=sale_model.employee_id,
+            vehicle_id=sale_model.vehicle_id,
+            total_amount=sale_model.total_amount,
+            payment_method=sale_model.payment_method,
+            status=sale_model.status,
+            sale_date=sale_model.sale_date,
+            notes=sale_model.notes,
+            discount_amount=sale_model.discount_amount,
+            tax_amount=sale_model.tax_amount,
+            commission_rate=sale_model.commission_rate,
+            created_at=sale_model.created_at,
+            updated_at=sale_model.updated_at
         )

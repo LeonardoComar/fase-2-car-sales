@@ -1,59 +1,44 @@
-from sqlalchemy import Column, Integer, String, Date, DateTime, Text, Numeric, ForeignKey
-from sqlalchemy.sql import func
+"""
+SaleModel - Infrastructure Layer
+
+Modelo SQLAlchemy para a tabela sales.
+
+Esta é uma implementação de infraestrutura que não deve vazar
+para as camadas superiores (domínio e aplicação).
+
+Aplicando o princípio Dependency Inversion Principle (DIP) - 
+as camadas superiores não dependem desta implementação.
+"""
+
+from sqlalchemy import Column, Integer, String, DECIMAL, DATE, TEXT, TIMESTAMP, func, ForeignKey, BIGINT
+from sqlalchemy.orm import relationship
 from src.infrastructure.database.connection import Base
+from typing import Optional
+from decimal import Decimal
+from datetime import date
 
 
 class SaleModel(Base):
     """
-    Modelo SQLAlchemy para Sale.
-    
-    Aplicando o princípio Single Responsibility Principle (SRP) - 
-    responsável apenas pela persistência dos dados de venda.
+    Modelo SQLAlchemy para a tabela sales.
     """
-    
-    __tablename__ = "sales"
-    
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    client_id = Column(Integer, ForeignKey('clients.id'), nullable=False, index=True)
-    employee_id = Column(Integer, ForeignKey('employees.id'), nullable=False, index=True)
-    vehicle_id = Column(Integer, nullable=False, index=True)  # ID do veículo (car ou motorcycle)
-    vehicle_type = Column(String(20), nullable=False, index=True)  # "car" ou "motorcycle"
-    
-    # Dados da venda
-    sale_date = Column(Date, nullable=False, index=True)
-    sale_price = Column(Numeric(12, 2), nullable=False)
-    discount = Column(Numeric(12, 2), default=0.0)
-    final_price = Column(Numeric(12, 2), nullable=False)
-    payment_method = Column(String(50), nullable=False, index=True)
-    installments = Column(Integer, default=1)
-    
-    # Status e observações
-    status = Column(String(20), nullable=False, default="Pendente", index=True)
-    notes = Column(Text)
-    
-    # Auditoria
-    created_at = Column(DateTime, nullable=False, default=func.now())
-    updated_at = Column(DateTime, nullable=False, default=func.now(), onupdate=func.now())
-    
-    def __repr__(self):
-        return f"<SaleModel(id={self.id}, client_id={self.client_id}, final_price={self.final_price})>"
-    
-    def to_dict(self):
-        """Converte o modelo para dicionário."""
-        return {
-            "id": self.id,
-            "client_id": self.client_id,
-            "employee_id": self.employee_id,
-            "vehicle_id": self.vehicle_id,
-            "vehicle_type": self.vehicle_type,
-            "sale_date": self.sale_date,
-            "sale_price": self.sale_price,
-            "discount": self.discount,
-            "final_price": self.final_price,
-            "payment_method": self.payment_method,
-            "installments": self.installments,
-            "status": self.status,
-            "notes": self.notes,
-            "created_at": self.created_at,
-            "updated_at": self.updated_at
-        }
+    __tablename__ = 'sales'
+
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
+    client_id = Column(BIGINT, ForeignKey('clients.id', ondelete='RESTRICT'), nullable=False)
+    employee_id = Column(BIGINT, ForeignKey('employees.id', ondelete='RESTRICT'), nullable=False)
+    vehicle_id = Column(BIGINT, ForeignKey('motor_vehicles.id', ondelete='RESTRICT'), nullable=False)
+    total_amount = Column(DECIMAL(12, 2), nullable=False)
+    payment_method = Column(String(50), nullable=False)
+    status = Column(String(50), nullable=False, default="Pendente")
+    sale_date = Column(DATE, nullable=False)
+    notes = Column(TEXT, nullable=True)
+    discount_amount = Column(DECIMAL(10, 2), nullable=False, default=Decimal('0.00'))
+    tax_amount = Column(DECIMAL(10, 2), nullable=False, default=Decimal('0.00'))
+    commission_rate = Column(DECIMAL(5, 2), nullable=False, default=Decimal('0.00'))
+    commission_amount = Column(DECIMAL(10, 2), nullable=False, default=Decimal('0.00'))
+    created_at = Column(TIMESTAMP, default=func.current_timestamp())
+    updated_at = Column(TIMESTAMP, default=func.current_timestamp(), onupdate=func.current_timestamp())
+
+    def __repr__(self) -> str:
+        return f"<SaleModel(id={self.id}, client_id={self.client_id}, total={self.total_amount}, status='{self.status}')>"

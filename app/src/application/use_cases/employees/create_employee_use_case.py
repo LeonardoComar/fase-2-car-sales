@@ -74,8 +74,26 @@ class CreateEmployeeUseCase:
             # Persistir no repositório
             created_employee = await self._employee_repository.create(employee, address)
             
+            # Se foi criado um endereço, buscar as informações completas
+            created_address = None
+            if created_employee.address_id and address:
+                # Usar os dados do endereço criado com o ID retornado
+                # Aqui poderíamos buscar do banco, mas como acabamos de criar, 
+                # vamos usar os dados que temos e adicionar as informações que faltam
+                from datetime import datetime
+                created_address = Address(
+                    id=created_employee.address_id,
+                    street=address.street,
+                    city=address.city,
+                    state=address.state,
+                    zip_code=address.zip_code,
+                    country=address.country,
+                    created_at=datetime.now(),
+                    updated_at=datetime.now()
+                )
+            
             # Converter para DTO de resposta
-            return self._convert_to_response_dto(created_employee, address)
+            return self._convert_to_response_dto(created_employee, created_address)
             
         except ValueError as e:
             raise e

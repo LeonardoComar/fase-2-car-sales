@@ -110,12 +110,10 @@ class ListEmployeesUseCase:
         Returns:
             EmployeeListDto: DTO de listagem
         """
-        # Buscar cidade do endereço se existir
+        # Buscar cidade do endereço se existir nos dados anexados
         city = None
-        if employee.address_id and hasattr(self._employee_repository, 'get_address_by_id'):
-            address = self._employee_repository.get_address_by_id(employee.address_id)
-            if address:
-                city = address.city
+        if hasattr(employee, '_address_data') and employee._address_data:
+            city = employee._address_data.get('city')
         
         return EmployeeListDto(
             id=employee.id,

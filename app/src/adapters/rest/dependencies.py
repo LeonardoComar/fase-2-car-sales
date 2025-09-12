@@ -55,9 +55,9 @@ from src.application.use_cases.sales import (
     UpdateSaleUseCase,
     DeleteSaleUseCase,
     ListSalesUseCase,
-    UpdateSaleStatusUseCase,
-    GetSalesStatisticsUseCase,
+    SaleStatisticsUseCase,
 )
+from src.application.use_cases.sales.confirm_sale_use_case import ConfirmSaleUseCase
 
 # Use Cases - Employees
 from src.application.use_cases.employees.create_employee_use_case import CreateEmployeeUseCase
@@ -90,7 +90,7 @@ from src.adapters.rest.controllers.blacklisted_token_controller import Blacklist
 from src.adapters.rest.controllers.vehicle_image_controller import VehicleImageController
 
 # Presenters
-from src.adapters.rest.presenters.sale_presenter import SalePresenter
+# from src.adapters.rest.presenters.sale_presenter import SalePresenter  # TODO: Implementar quando necessário
 # from src.adapters.rest.presenters.employee_presenter import EmployeePresenter  # TODO: Implementar quando necessário
 from src.adapters.rest.presenters.message_presenter import MessagePresenter
 from src.adapters.rest.presenters.client_presenter import ClientPresenter
@@ -114,7 +114,7 @@ from src.adapters.persistence.gateways import (
     CarGateway,
     ClientGateway,
     MotorcycleGateway,
-    # EmployeeGateway,  # TODO: Implementar quando necessário
+    EmployeeGateway,  # Habilitando EmployeeGateway
     SaleGateway,
     MessageGateway
 )
@@ -257,38 +257,38 @@ def get_update_client_status_use_case() -> UpdateClientStatusUseCase:
 
 
 def get_create_sale_use_case() -> CreateSaleUseCase:
-    """Factory para CreateSaleUseCase - versão com mock."""
-    return CreateSaleUseCase(get_mock_sale_repository())
+    """Factory para CreateSaleUseCase - versão com gateway real."""
+    return CreateSaleUseCase(get_sale_gateway())
 
 
 def get_get_sale_by_id_use_case() -> GetSaleByIdUseCase:
-    """Factory para GetSaleByIdUseCase - versão com mock."""
-    return GetSaleByIdUseCase(get_mock_sale_repository())
+    """Factory para GetSaleByIdUseCase - versão com gateway real."""
+    return GetSaleByIdUseCase(get_sale_gateway())
 
 
 def get_update_sale_use_case() -> UpdateSaleUseCase:
-    """Factory para UpdateSaleUseCase - versão com mock."""
-    return UpdateSaleUseCase(get_mock_sale_repository())
+    """Factory para UpdateSaleUseCase - versão com gateway real."""
+    return UpdateSaleUseCase(get_sale_gateway())
 
 
 def get_delete_sale_use_case() -> DeleteSaleUseCase:
-    """Factory para DeleteSaleUseCase - versão com mock."""
-    return DeleteSaleUseCase(get_mock_sale_repository())
+    """Factory para DeleteSaleUseCase - versão com gateway real."""
+    return DeleteSaleUseCase(get_sale_gateway())
 
 
 def get_list_sales_use_case() -> ListSalesUseCase:
-    """Factory para ListSalesUseCase - versão com mock."""
-    return ListSalesUseCase(get_mock_sale_repository())
+    """Factory para ListSalesUseCase - versão com gateway real."""
+    return ListSalesUseCase(get_sale_gateway())
 
 
-def get_update_sale_status_use_case() -> UpdateSaleStatusUseCase:
-    """Factory para UpdateSaleStatusUseCase - versão com mock."""
-    return UpdateSaleStatusUseCase(get_mock_sale_repository())
+def get_confirm_sale_use_case() -> ConfirmSaleUseCase:
+    """Factory para ConfirmSaleUseCase - versão com gateway real."""
+    return ConfirmSaleUseCase(get_sale_gateway())
 
 
-def get_get_sales_statistics_use_case() -> GetSalesStatisticsUseCase:
-    """Factory para GetSalesStatisticsUseCase - versão com mock."""
-    return GetSalesStatisticsUseCase(get_mock_sale_repository())
+def get_sale_statistics_use_case() -> SaleStatisticsUseCase:
+    """Factory para SaleStatisticsUseCase - versão com gateway real."""
+    return SaleStatisticsUseCase(get_sale_gateway())
 
 
 # Dependency Functions - Use Cases - Message (com mock repository)
@@ -440,9 +440,13 @@ def get_motorcycle_gateway() -> MotorcycleGateway:
         raise e
 
 # TODO: Implementar quando necessário
-# def get_employee_gateway() -> EmployeeGateway:
-#     """Factory for EmployeeGateway with database connection."""
-#     return EmployeeGateway()
+def get_employee_gateway():
+    """Factory for EmployeeGateway with database connection."""
+    # TODO: Implementar injeção de sessão correta
+    # Por enquanto, importando diretamente
+    from src.infrastructure.database.connection import SessionLocal
+    session = SessionLocal()
+    return EmployeeGateway(session)
 
 def get_user_gateway() -> UserGateway:
     """Factory for UserGateway with database connection."""
@@ -450,7 +454,11 @@ def get_user_gateway() -> UserGateway:
 
 def get_sale_gateway() -> SaleGateway:
     """Factory for SaleGateway with database connection."""
-    return SaleGateway()
+    # TODO: Implementar injeção de sessão correta
+    # Por enquanto, importando diretamente
+    from src.infrastructure.database.connection import SessionLocal
+    session = SessionLocal()
+    return SaleGateway(session)
 
 def get_message_gateway() -> MessageGateway:
     """Factory for MessageGateway with database connection."""
@@ -474,40 +482,40 @@ def get_message_gateway() -> MessageGateway:
 # Dependency Functions - Use Cases - Employee (com mock repository)
 
 def get_create_employee_use_case() -> CreateEmployeeUseCase:
-    """Factory para CreateEmployeeUseCase - versão com mock."""
-    return CreateEmployeeUseCase(get_mock_employee_repository())
+    """Factory para CreateEmployeeUseCase - versão com gateway real."""
+    return CreateEmployeeUseCase(get_employee_gateway())
 
 
 def get_get_employee_use_case() -> GetEmployeeUseCase:
-    """Factory para GetEmployeeUseCase - versão com mock."""
-    return GetEmployeeUseCase(get_mock_employee_repository())
+    """Factory para GetEmployeeUseCase - versão com gateway real."""
+    return GetEmployeeUseCase(get_employee_gateway())
 
 
 def get_update_employee_use_case() -> UpdateEmployeeUseCase:
-    """Factory para UpdateEmployeeUseCase - versão com mock."""
-    return UpdateEmployeeUseCase(get_mock_employee_repository())
+    """Factory para UpdateEmployeeUseCase - versão com gateway real."""
+    return UpdateEmployeeUseCase(get_employee_gateway())
 
 
 def get_delete_employee_use_case() -> DeleteEmployeeUseCase:
-    """Factory para DeleteEmployeeUseCase - versão com mock."""
-    return DeleteEmployeeUseCase(get_mock_employee_repository())
+    """Factory para DeleteEmployeeUseCase - versão com gateway real."""
+    return DeleteEmployeeUseCase(get_employee_gateway())
 
 
 def get_list_employees_use_case() -> ListEmployeesUseCase:
-    """Factory para ListEmployeesUseCase - versão com mock."""
-    return ListEmployeesUseCase(get_mock_employee_repository())
+    """Factory para ListEmployeesUseCase - versão com gateway real."""
+    return ListEmployeesUseCase(get_employee_gateway())
 
 
 def get_update_employee_status_use_case() -> UpdateEmployeeStatusUseCase:
-    """Factory para UpdateEmployeeStatusUseCase - versão com mock."""
-    return UpdateEmployeeStatusUseCase(get_mock_employee_repository())
+    """Factory para UpdateEmployeeStatusUseCase - versão com gateway real."""
+    return UpdateEmployeeStatusUseCase(get_employee_gateway())
 
 
 # Dependency Functions - Presenters
 
-def get_sale_presenter() -> SalePresenter:
-    """Factory para SalePresenter."""
-    return SalePresenter()
+# def get_sale_presenter() -> SalePresenter:
+#     """Factory para SalePresenter."""
+#     return SalePresenter()
 
 
 # TODO: Implementar quando necessário
@@ -551,9 +559,8 @@ def get_sale_controller() -> SaleController:
         update_sale_use_case=get_update_sale_use_case(),
         delete_sale_use_case=get_delete_sale_use_case(),
         list_sales_use_case=get_list_sales_use_case(),
-        update_sale_status_use_case=get_update_sale_status_use_case(),
-        get_sales_statistics_use_case=get_get_sales_statistics_use_case(),
-        sale_presenter=get_sale_presenter()
+        sale_statistics_use_case=get_sale_statistics_use_case(),
+        confirm_sale_use_case=get_confirm_sale_use_case()
     )
 
 

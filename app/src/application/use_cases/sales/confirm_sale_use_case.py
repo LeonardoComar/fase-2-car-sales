@@ -1,29 +1,28 @@
 """
-Use Case para Atualização de Venda - Application Layer
+Use Case para Confirmação de Vendas - Application Layer
 
-Responsável por atualizar vendas aplicando regras de negócio.
+Responsável por confirmar vendas seguindo regras de negócio.
 
 Aplicando princípios SOLID:
-- SRP: Responsável apenas pela atualização de vendas
-- OCP: Extensível para novas validações sem modificar código existente
+- SRP: Responsável apenas pela confirmação de vendas
+- OCP: Extensível para novas regras sem modificar código existente
 - LSP: Pode ser substituído por outras implementações
-- ISP: Interface específica para atualização
+- ISP: Interface específica para confirmação
 - DIP: Depende de abstrações (repositórios) não de implementações
 """
 
 from typing import Optional
 from src.domain.entities.sale import Sale
 from src.domain.ports.sale_repository import SaleRepository
-from src.application.dtos.sale_dto import UpdateSaleRequest, SaleResponse, ClientSummary, EmployeeSummary, VehicleSummary
+from src.application.dtos.sale_dto import SaleResponse, ClientSummary, EmployeeSummary, VehicleSummary
 from decimal import Decimal
 
 
-class UpdateSaleUseCase:
+class ConfirmSaleUseCase:
     """
-    Use Case para atualização de vendas.
+    Use Case para confirmação de vendas.
     
-    Coordena a validação de dados, aplicação de regras de negócio
-    e persistência de alterações de vendas no sistema.
+    Coordena a confirmação de vendas no sistema.
     """
     
     def __init__(self, sale_repository: SaleRepository):
@@ -35,55 +34,56 @@ class UpdateSaleUseCase:
         """
         self._sale_repository = sale_repository
     
-    async def execute(self, sale_id: int, sale_data: UpdateSaleRequest) -> Optional[SaleResponse]:
+    async def execute(self, sale_id: int) -> Optional[SaleResponse]:
         """
-        Executa a atualização de uma venda.
+        Executa a confirmação de uma venda.
         
         Args:
-            sale_id: ID da venda a ser atualizada
-            sale_data: Dados para atualização da venda
+            sale_id: ID da venda a ser confirmada
             
         Returns:
-            Optional[SaleResponse]: Dados da venda atualizada ou None se não encontrada
+            Optional[SaleResponse]: A venda confirmada ou None se não encontrada
             
         Raises:
-            ValueError: Se dados inválidos forem fornecidos
-            Exception: Se houver erro na atualização
+            ValueError: Se parâmetros inválidos forem fornecidos
+            Exception: Se houver erro na confirmação
         """
         try:
+            # Validar parâmetros
             if sale_id <= 0:
                 raise ValueError("ID da venda deve ser maior que zero")
             
-            # Buscar venda existente
-            existing_sale = await self._sale_repository.get_sale_by_id(sale_id)
-            if not existing_sale:
+            # Buscar a venda
+            sale = await self._sale_repository.get_sale_by_id(sale_id)
+            if not sale:
                 return None
             
-            # Aplicar atualizações usando método de domínio
-            existing_sale.update_fields(
-                total_amount=sale_data.total_amount,
-                payment_method=sale_data.payment_method,
-                status=sale_data.status,
-                sale_date=sale_data.sale_date,
-                notes=sale_data.notes,
-                discount_amount=sale_data.discount_amount,
-                tax_amount=sale_data.tax_amount,
-                commission_rate=sale_data.commission_rate
-            )
+            # Verificar se a venda pode ser confirmada
+            if sale.status == Sale.STATUS_CONFIRMADA:
+                raise ValueError("Venda já está confirmada")
             
-            # Persistir no repositório
-            result_sale = await self._sale_repository.update_sale(sale_id, existing_sale)
+            if sale.status in [Sale.STATUS_PAGA, Sale.STATUS_ENTREGUE]:
+                raise ValueError("Venda já foi processada e não pode ser confirmada")
             
-            if not result_sale:
-                return None
+            if sale.status == Sale.STATUS_CANCELADA:
+                raise ValueError("Venda cancelada não pode ser confirmada")
+            
+            # Confirmar a venda
+            sale.confirm_sale()
+            
+            # Atualizar no repositório usando update_sale_status
+            updated_sale = await self._sale_repository.update_sale_status(sale_id, sale.status)
+            
+            if not updated_sale:
+                raise Exception("Erro ao atualizar status da venda")
             
             # Converter para DTO de resposta
-            return self._convert_to_response_dto(result_sale)
+            return self._convert_to_response_dto(updated_sale)
             
         except ValueError as e:
             raise e
         except Exception as e:
-            raise Exception(f"Erro ao atualizar venda: {str(e)}")
+            raise Exception(f"Erro ao confirmar venda: {str(e)}")
     
     def _convert_to_response_dto(self, sale: Sale) -> SaleResponse:
         """
