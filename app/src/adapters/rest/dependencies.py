@@ -40,12 +40,9 @@ from src.application.use_cases.vehicles import (
 from src.application.use_cases.messages import (
     CreateMessageUseCase,
     GetMessageByIdUseCase,
-    UpdateMessageUseCase,
-    DeleteMessageUseCase,
-    ListMessagesUseCase,
-    AssignMessageUseCase,
+    GetAllMessagesUseCase,
+    StartServiceUseCase,
     UpdateMessageStatusUseCase,
-    GetMessagesStatisticsUseCase,
 )
 
 # Use Cases - Sales
@@ -92,7 +89,7 @@ from src.adapters.rest.controllers.vehicle_image_controller import VehicleImageC
 # Presenters
 # from src.adapters.rest.presenters.sale_presenter import SalePresenter  # TODO: Implementar quando necessário
 # from src.adapters.rest.presenters.employee_presenter import EmployeePresenter  # TODO: Implementar quando necessário
-from src.adapters.rest.presenters.message_presenter import MessagePresenter
+# from src.adapters.rest.presenters.message_presenter import MessagePresenter  # TODO: Implementar quando necessário
 from src.adapters.rest.presenters.client_presenter import ClientPresenter
 from src.adapters.rest.presenters.car_presenter import CarPresenter
 from src.adapters.rest.presenters.motorcycle_presenter import MotorcyclePresenter
@@ -104,7 +101,7 @@ from src.infrastructure.driven.mock_motorcycle_repository import MockMotorcycleR
 from src.infrastructure.driven.mock_client_repository import MockClientRepository
 from src.infrastructure.driven.mock_employee_repository import MockEmployeeRepository
 from src.infrastructure.driven.mock_sale_repository import MockSaleRepository
-from src.infrastructure.driven.mock_message_repository import MockMessageRepository
+# from src.infrastructure.driven.mock_message_repository import MockMessageRepository  # TODO: Implementar quando necessário
 from src.infrastructure.driven.mock_user_repository import MockUserRepository
 from src.infrastructure.driven.mock_blacklisted_token_repository import MockBlacklistedTokenRepository
 
@@ -291,46 +288,36 @@ def get_sale_statistics_use_case() -> SaleStatisticsUseCase:
     return SaleStatisticsUseCase(get_sale_gateway())
 
 
-# Dependency Functions - Use Cases - Message (com mock repository)
+# Dependency Functions - Use Cases - Message (com repositório real)
+
+def get_message_repository() -> MessageGateway:
+    """Factory para MessageRepository (usando MessageGateway)."""
+    return get_message_gateway()
+
 
 def get_create_message_use_case() -> CreateMessageUseCase:
-    """Factory para CreateMessageUseCase - versão com mock."""
-    return CreateMessageUseCase(get_mock_message_repository())
+    """Factory para CreateMessageUseCase."""
+    return CreateMessageUseCase(get_message_repository())
 
 
 def get_get_message_by_id_use_case() -> GetMessageByIdUseCase:
-    """Factory para GetMessageByIdUseCase - versão com mock."""
-    return GetMessageByIdUseCase(get_mock_message_repository())
+    """Factory para GetMessageByIdUseCase."""
+    return GetMessageByIdUseCase(get_message_repository())
 
 
-def get_update_message_use_case() -> UpdateMessageUseCase:
-    """Factory para UpdateMessageUseCase - versão com mock."""
-    return UpdateMessageUseCase(get_mock_message_repository())
+def get_get_all_messages_use_case() -> GetAllMessagesUseCase:
+    """Factory para GetAllMessagesUseCase."""
+    return GetAllMessagesUseCase(get_message_repository())
 
 
-def get_delete_message_use_case() -> DeleteMessageUseCase:
-    """Factory para DeleteMessageUseCase - versão com mock."""
-    return DeleteMessageUseCase(get_mock_message_repository())
-
-
-def get_list_messages_use_case() -> ListMessagesUseCase:
-    """Factory para ListMessagesUseCase - versão com mock."""
-    return ListMessagesUseCase(get_mock_message_repository())
-
-
-def get_assign_message_use_case() -> AssignMessageUseCase:
-    """Factory para AssignMessageUseCase - versão com mock."""
-    return AssignMessageUseCase(get_mock_message_repository())
+def get_start_service_use_case() -> StartServiceUseCase:
+    """Factory para StartServiceUseCase."""
+    return StartServiceUseCase(get_message_repository())
 
 
 def get_update_message_status_use_case() -> UpdateMessageStatusUseCase:
-    """Factory para UpdateMessageStatusUseCase - versão com mock."""
-    return UpdateMessageStatusUseCase(get_mock_message_repository())
-
-
-def get_get_messages_statistics_use_case() -> GetMessagesStatisticsUseCase:
-    """Factory para GetMessagesStatisticsUseCase - versão com mock."""
-    return GetMessagesStatisticsUseCase(get_mock_message_repository())
+    """Factory para UpdateMessageStatusUseCase."""
+    return UpdateMessageStatusUseCase(get_message_repository())
 
 
 # Singleton mock repository for Employee (shared state during development)
@@ -341,7 +328,7 @@ _mock_client_repository = None
 _mock_user_repository = None
 _mock_employee_repository = None
 _mock_sale_repository = None
-_mock_message_repository = None
+# _mock_message_repository = None  # TODO: Implementar quando necessário
 _mock_blacklisted_token_repository = None
 
 
@@ -393,12 +380,13 @@ def get_mock_sale_repository() -> MockSaleRepository:
     return _mock_sale_repository
 
 
-def get_mock_message_repository() -> MockMessageRepository:
-    """Factory para mock Message repository - versão singleton."""
-    global _mock_message_repository
-    if _mock_message_repository is None:
-        _mock_message_repository = MockMessageRepository()
-    return _mock_message_repository
+# TODO: Implementar quando necessário
+# def get_mock_message_repository() -> MockMessageRepository:
+#     """Factory para mock Message repository - versão singleton."""
+#     global _mock_message_repository
+#     if _mock_message_repository is None:
+#         _mock_message_repository = MockMessageRepository()
+#     return _mock_message_repository
 
 
 def get_mock_blacklisted_token_repository() -> MockBlacklistedTokenRepository:
@@ -462,7 +450,11 @@ def get_sale_gateway() -> SaleGateway:
 
 def get_message_gateway() -> MessageGateway:
     """Factory for MessageGateway with database connection."""
-    return MessageGateway()
+    # TODO: Implementar injeção de sessão correta
+    # Por enquanto, importando diretamente
+    from src.infrastructure.database.connection import SessionLocal
+    session = SessionLocal()
+    return MessageGateway(session)
 #
 # def get_sale_gateway() -> SaleGateway:
 #     """Factory for SaleGateway with database session."""
@@ -524,9 +516,9 @@ def get_update_employee_status_use_case() -> UpdateEmployeeStatusUseCase:
 #     return EmployeePresenter()
 
 
-def get_message_presenter() -> MessagePresenter:
-    """Factory para MessagePresenter."""
-    return MessagePresenter()
+# def get_message_presenter() -> MessagePresenter:
+#     """Factory para MessagePresenter."""
+#     return MessagePresenter()
 
 
 def get_client_presenter() -> ClientPresenter:
@@ -581,13 +573,9 @@ def get_message_controller() -> MessageController:
     return MessageController(
         create_message_use_case=get_create_message_use_case(),
         get_message_by_id_use_case=get_get_message_by_id_use_case(),
-        update_message_use_case=get_update_message_use_case(),
-        delete_message_use_case=get_delete_message_use_case(),
-        list_messages_use_case=get_list_messages_use_case(),
-        assign_message_use_case=get_assign_message_use_case(),
-        update_message_status_use_case=get_update_message_status_use_case(),
-        get_messages_statistics_use_case=get_get_messages_statistics_use_case(),
-        message_presenter=get_message_presenter()
+        get_all_messages_use_case=get_get_all_messages_use_case(),
+        start_service_use_case=get_start_service_use_case(),
+        update_message_status_use_case=get_update_message_status_use_case()
     )
 
 

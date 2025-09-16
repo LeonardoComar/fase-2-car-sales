@@ -1,506 +1,240 @@
 """
-Rotas REST para Message - Adapters Layer
+Router para Mensagens - Interface Layer
 
-Define as rotas HTTP para operações com mensagens seguindo padrões REST.
-Aplicando Clean Architecture e princípios SOLID.
+Define as rotas HTTP para operações relacionadas a mensagens.
+
+Aplicando princípios SOLID:
+- SRP: Responsável apenas por definir rotas de mensagens
+- OCP: Extensível para novas rotas sem modificar código existente
+- LSP: Pode ser substituído por outras implementações
+- ISP: Interface específica para rotas de mensagens
+- DIP: Depende de abstrações (controllers) não de implementações
 """
 
 from typing import Optional
-from uuid import UUID
-from datetime import date
-from fastapi import APIRouter, HTTPException, Depends, Query, Path, status
-from fastapi.responses import JSONResponse
-
-from src.application.dtos.message_dto import (
-    MessageCreateDto,
-    MessageUpdateDto,
-    MessageAssignDto,
-    MessageStatusUpdateDto,
-    MessageSearchDto
-)
-
+from fastapi import APIRouter, Depends, Query, Path, Body
 from src.adapters.rest.controllers.message_controller import MessageController
-from src.adapters.rest.dependencies import (
-    get_create_message_use_case,
-    get_get_message_by_id_use_case,
-    get_update_message_use_case,
-    get_delete_message_use_case,
-    get_list_messages_use_case,
-    get_assign_message_use_case,
-    get_update_message_status_use_case,
-    get_get_messages_statistics_use_case,
-    get_message_presenter
+from src.adapters.rest.dependencies import get_message_controller
+from src.application.dtos.message_dto import (
+    CreateMessageRequest,
+    StartServiceRequest,
+    UpdateMessageStatusRequest,
+    MessageResponse,
+    MessageCreatedResponse,
+    MessageListResponse
 )
 
-from src.adapters.rest.presenters.message_presenter import MessagePresenter
-
-
-# Configuração do router
-message_router = APIRouter(tags=["messages"])
-
-
-def get_message_controller() -> MessageController:
-    """Factory para MessageController com todas as dependências."""
-    return MessageController(
-        create_message_use_case=get_create_message_use_case(),
-        get_message_by_id_use_case=get_get_message_by_id_use_case(),
-        update_message_use_case=get_update_message_use_case(),
-        delete_message_use_case=get_delete_message_use_case(),
-        list_messages_use_case=get_list_messages_use_case(),
-        assign_message_use_case=get_assign_message_use_case(),
-        update_message_status_use_case=get_update_message_status_use_case(),
-        get_messages_statistics_use_case=get_get_messages_statistics_use_case(),
-        message_presenter=get_message_presenter()
-    )
-
+# Criar o router diretamente
+message_router = APIRouter()
 
 @message_router.post(
     "/",
-    status_code=status.HTTP_201_CREATED,
+    response_model=MessageCreatedResponse,
+    status_code=201,
     summary="Criar nova mensagem",
-    description="Cria uma nova mensagem de interesse em veículo",
-    response_description="Mensagem criada com sucesso"
+    description="Cria uma nova mensagem no sistema. Esta rota não requer autenticação, permitindo que visitantes enviem mensagens.",
+    responses={
+        201: {"description": "Mensagem criada com sucesso"},
+        400: {"description": "Dados inválidos"},
+        500: {"description": "Erro interno do servidor"}
+    }
 )
 async def create_message(
-    message_data: MessageCreateDto,
+    message_data: CreateMessageRequest = Body(..., description="Dados da mensagem a ser criada"),
     controller: MessageController = Depends(get_message_controller)
-):
-    """
-    Cria uma nova mensagem de interesse.
-    
-    - **name**: Nome do interessado (obrigatório)
-    - **email**: Email do interessado (obrigatório)
-    - **phone**: Telefone do interessado (opcional)
-    - **message**: Mensagem/interesse (obrigatório)
-    - **vehicle_id**: ID do veículo de interesse (opcional)
-    """
-    try:
-        result = await controller.create_message(message_data)
-        return JSONResponse(
-            status_code=status.HTTP_201_CREATED,
-            content={
-                "success": True,
-                "message": "Mensagem criada com sucesso",
-                "data": result
-            }
-        )
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Dados inválidos: {str(e)}"
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erro interno: {str(e)}"
-        )
-
-
-@message_router.get(
-    "/{message_id}",
-    summary="Buscar mensagem por ID",
-    description="Retorna uma mensagem específica pelo ID",
-    response_description="Dados da mensagem"
-)
-async def get_message_by_id(
-    message_id: UUID = Path(..., description="ID da mensagem"),
-    controller: MessageController = Depends(get_message_controller)
-):
-    """
-    Busca uma mensagem específica pelo ID.
-    """
-    try:
-        result = await controller.get_message_by_id(message_id)
-        
-        if not result:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Mensagem não encontrada"
-            )
-        
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={
-                "success": True,
-                "data": result
-            }
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erro interno: {str(e)}"
-        )
-
-
-@message_router.put(
-    "/{message_id}",
-    summary="Atualizar mensagem",
-    description="Atualiza dados de uma mensagem existente",
-    response_description="Mensagem atualizada com sucesso"
-)
-async def update_message(
-    message_id: UUID = Path(..., description="ID da mensagem"),
-    update_data: MessageUpdateDto = ...,
-    controller: MessageController = Depends(get_message_controller)
-):
-    """
-    Atualiza dados de uma mensagem existente.
-    
-    Apenas os campos fornecidos serão atualizados.
-    """
-    try:
-        result = await controller.update_message(message_id, update_data)
-        
-        if not result:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Mensagem não encontrada"
-            )
-        
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={
-                "success": True,
-                "message": "Mensagem atualizada com sucesso",
-                "data": result
-            }
-        )
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Dados inválidos: {str(e)}"
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erro interno: {str(e)}"
-        )
-
-
-@message_router.delete(
-    "/{message_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="Deletar mensagem",
-    description="Remove uma mensagem do sistema",
-    response_description="Mensagem removida com sucesso"
-)
-async def delete_message(
-    message_id: UUID = Path(..., description="ID da mensagem"),
-    controller: MessageController = Depends(get_message_controller)
-):
-    """
-    Remove uma mensagem do sistema.
-    """
-    try:
-        success = await controller.delete_message(message_id)
-        
-        if not success:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Mensagem não encontrada"
-            )
-        
-        return JSONResponse(
-            status_code=status.HTTP_204_NO_CONTENT,
-            content=None
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erro interno: {str(e)}"
-        )
-
+) -> MessageCreatedResponse:
+    """Cria uma nova mensagem."""
+    return await controller.create_message(message_data)
 
 @message_router.get(
     "/",
+    response_model=MessageListResponse,
     summary="Listar mensagens",
-    description="Lista mensagens com filtros opcionais",
-    response_description="Lista de mensagens"
+    description="Lista mensagens com filtros opcionais e paginação.",
+    responses={
+        200: {"description": "Lista de mensagens retornada com sucesso"},
+        400: {"description": "Parâmetros de consulta inválidos"},
+        500: {"description": "Erro interno do servidor"}
+    }
 )
-async def list_messages(
-    status_filter: Optional[str] = Query(None, alias="status", description="Filtrar por status"),
-    responsible_id: Optional[UUID] = Query(None, description="Filtrar por responsável"),
-    vehicle_id: Optional[UUID] = Query(None, description="Filtrar por veículo"),
-    email: Optional[str] = Query(None, description="Filtrar por email"),
-    start_date: Optional[date] = Query(None, description="Data inicial"),
-    end_date: Optional[date] = Query(None, description="Data final"),
-    pending_only: Optional[bool] = Query(None, description="Apenas pendentes"),
-    unassigned_only: Optional[bool] = Query(None, description="Apenas sem responsável"),
-    overdue_hours: Optional[int] = Query(None, description="Em atraso (horas)"),
-    order_by: Optional[str] = Query("created_at", description="Campo para ordenação"),
-    order_direction: Optional[str] = Query("desc", description="Direção da ordenação"),
-    skip: Optional[int] = Query(0, ge=0, description="Registros a pular"),
-    limit: Optional[int] = Query(50, ge=1, le=100, description="Limite de registros"),
+async def get_all_messages(
+    status: Optional[str] = Query(
+        None,
+        description="Filtrar por status",
+        enum=["Pendente", "Contato iniciado", "Finalizado", "Cancelado"]
+    ),
+    responsible_id: Optional[int] = Query(
+        None,
+        gt=0,
+        description="Filtrar por ID do funcionário responsável"
+    ),
+    vehicle_id: Optional[int] = Query(
+        None,
+        gt=0,
+        description="Filtrar por ID do veículo relacionado"
+    ),
+    page: int = Query(
+        1,
+        ge=1,
+        description="Número da página"
+    ),
+    limit: int = Query(
+        10,
+        ge=1,
+        le=100,
+        description="Itens por página"
+    ),
+    order_by: str = Query(
+        "created_at",
+        description="Campo para ordenação",
+        enum=["id", "name", "email", "status", "created_at", "updated_at", "service_start_time"]
+    ),
+    order_direction: str = Query(
+        "desc",
+        description="Direção da ordenação",
+        enum=["asc", "desc"]
+    ),
     controller: MessageController = Depends(get_message_controller)
-):
-    """
-    Lista mensagens com filtros opcionais.
-    
-    Suporta paginação e diversos filtros para facilitar a busca.
-    """
-    try:
-        # Criar DTO de busca
-        search_params = MessageSearchDto(
-            status=status_filter,
-            responsible_id=responsible_id,
-            vehicle_id=vehicle_id,
-            email=email,
-            start_date=start_date,
-            end_date=end_date,
-            pending_only=pending_only,
-            unassigned_only=unassigned_only,
-            overdue_hours=overdue_hours,
-            order_by=order_by,
-            order_direction=order_direction,
-            skip=skip,
-            limit=limit
-        )
-        
-        result = await controller.list_messages(search_params)
-        
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={
-                "success": True,
-                "data": result
-            }
-        )
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Parâmetros inválidos: {str(e)}"
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erro interno: {str(e)}"
-        )
+) -> MessageListResponse:
+    """Lista mensagens com filtros opcionais."""
+    return await controller.get_all_messages(
+        status=status,
+        responsible_id=responsible_id,
+        vehicle_id=vehicle_id,
+        page=page,
+        limit=limit,
+        order_by=order_by,
+        order_direction=order_direction
+    )
 
+@message_router.get(
+    "/{message_id}",
+    response_model=MessageResponse,
+    summary="Buscar mensagem por ID",
+    description="Busca uma mensagem específica pelo seu ID.",
+    responses={
+        200: {"description": "Mensagem encontrada"},
+        404: {"description": "Mensagem não encontrada"},
+        400: {"description": "ID inválido"},
+        500: {"description": "Erro interno do servidor"}
+    }
+)
+async def get_message_by_id(
+    message_id: int = Path(..., gt=0, description="ID da mensagem"),
+    controller: MessageController = Depends(get_message_controller)
+) -> MessageResponse:
+    """Busca uma mensagem por ID."""
+    return await controller.get_message_by_id(message_id)
 
 @message_router.patch(
-    "/{message_id}/assign",
-    summary="Atribuir responsável",
-    description="Atribui um funcionário responsável pela mensagem",
-    response_description="Mensagem atualizada com responsável"
+    "/{message_id}/start-service",
+    response_model=MessageResponse,
+    summary="Iniciar atendimento",
+    description="Inicia o atendimento de uma mensagem, atribuindo um responsável e alterando o status para 'Contato iniciado'.",
+    responses={
+        200: {"description": "Atendimento iniciado com sucesso"},
+        404: {"description": "Mensagem não encontrada"},
+        400: {"description": "Dados inválidos ou mensagem já possui responsável"},
+        500: {"description": "Erro interno do servidor"}
+    }
 )
-async def assign_message(
-    message_id: UUID = Path(..., description="ID da mensagem"),
-    assign_data: MessageAssignDto = ...,
+async def start_service(
+    message_id: int = Path(..., gt=0, description="ID da mensagem"),
+    service_data: StartServiceRequest = Body(..., description="Dados do início de atendimento"),
     controller: MessageController = Depends(get_message_controller)
-):
-    """
-    Atribui um funcionário responsável pela mensagem.
-    """
-    try:
-        result = await controller.assign_message(message_id, assign_data)
-        
-        if not result:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Mensagem não encontrada"
-            )
-        
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={
-                "success": True,
-                "message": "Responsável atribuído com sucesso",
-                "data": result
-            }
-        )
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Dados inválidos: {str(e)}"
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erro interno: {str(e)}"
-        )
-
+) -> MessageResponse:
+    """Inicia o atendimento de uma mensagem."""
+    return await controller.start_service(message_id, service_data)
 
 @message_router.patch(
     "/{message_id}/status",
-    summary="Atualizar status",
-    description="Atualiza o status de atendimento da mensagem",
-    response_description="Mensagem com status atualizado"
+    response_model=MessageResponse,
+    summary="Atualizar status da mensagem",
+    description="Atualiza o status de uma mensagem.",
+    responses={
+        200: {"description": "Status atualizado com sucesso"},
+        404: {"description": "Mensagem não encontrada"},
+        400: {"description": "Status inválido"},
+        500: {"description": "Erro interno do servidor"}
+    }
 )
 async def update_message_status(
-    message_id: UUID = Path(..., description="ID da mensagem"),
-    status_data: MessageStatusUpdateDto = ...,
+    message_id: int = Path(..., gt=0, description="ID da mensagem"),
+    status_data: UpdateMessageStatusRequest = Body(..., description="Novo status da mensagem"),
     controller: MessageController = Depends(get_message_controller)
-):
-    """
-    Atualiza o status de atendimento da mensagem.
-    
-    - **Pendente**: Mensagem aguardando atendimento
-    - **Contato iniciado**: Atendimento em andamento
-    - **Finalizado**: Atendimento concluído
-    - **Cancelado**: Mensagem cancelada
-    """
-    try:
-        result = await controller.update_message_status(message_id, status_data)
-        
-        if not result:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Mensagem não encontrada"
-            )
-        
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={
-                "success": True,
-                "message": "Status atualizado com sucesso",
-                "data": result
-            }
-        )
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Dados inválidos: {str(e)}"
-        )
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erro interno: {str(e)}"
-        )
+) -> MessageResponse:
+    """Atualiza o status de uma mensagem."""
+    return await controller.update_status(message_id, status_data)
 
-
-@message_router.get(
-    "/analytics/statistics",
-    summary="Estatísticas de mensagens",
-    description="Retorna estatísticas gerais sobre mensagens e atendimento",
-    response_description="Estatísticas de mensagens"
+# Rotas específicas para cada status (seguindo padrão do sistema)
+@message_router.patch(
+    "/{message_id}/pending",
+    response_model=MessageResponse,
+    summary="Definir status como Pendente",
+    description="Define o status da mensagem como 'Pendente'.",
+    responses={
+        200: {"description": "Status atualizado para Pendente"},
+        404: {"description": "Mensagem não encontrada"},
+        500: {"description": "Erro interno do servidor"}
+    }
 )
-async def get_messages_statistics(
-    start_date: Optional[date] = Query(None, description="Data inicial para filtro"),
-    end_date: Optional[date] = Query(None, description="Data final para filtro"),
+async def set_pending_status(
+    message_id: int = Path(..., gt=0, description="ID da mensagem"),
     controller: MessageController = Depends(get_message_controller)
-):
-    """
-    Retorna estatísticas gerais sobre mensagens e atendimento.
-    
-    Inclui métricas de performance, distribuição por status e rankings.
-    """
-    try:
-        result = await controller.get_messages_statistics(start_date, end_date)
-        
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={
-                "success": True,
-                "data": result
-            }
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erro interno: {str(e)}"
-        )
+) -> MessageResponse:
+    """Define status como 'Pendente'."""
+    return await controller.set_pending_status(message_id)
 
-
-@message_router.get(
-    "/pending",
-    summary="Mensagens pendentes",
-    description="Lista mensagens pendentes com informações de prioridade",
-    response_description="Mensagens pendentes com prioridade"
+@message_router.patch(
+    "/{message_id}/contact-initiated",
+    response_model=MessageResponse,
+    summary="Definir status como Contato iniciado",
+    description="Define o status da mensagem como 'Contato iniciado'.",
+    responses={
+        200: {"description": "Status atualizado para Contato iniciado"},
+        404: {"description": "Mensagem não encontrada"},
+        500: {"description": "Erro interno do servidor"}
+    }
 )
-async def get_pending_messages(
+async def set_contact_initiated_status(
+    message_id: int = Path(..., gt=0, description="ID da mensagem"),
     controller: MessageController = Depends(get_message_controller)
-):
-    """
-    Lista mensagens pendentes ordenadas por prioridade.
-    
-    A prioridade é calculada baseada no tempo de espera.
-    """
-    try:
-        result = await controller.get_pending_messages()
-        
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={
-                "success": True,
-                "data": result
-            }
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erro interno: {str(e)}"
-        )
+) -> MessageResponse:
+    """Define status como 'Contato iniciado'."""
+    return await controller.set_contact_initiated_status(message_id)
 
-
-@message_router.get(
-    "/vehicle/{vehicle_id}",
-    summary="Mensagens por veículo",
-    description="Lista mensagens relacionadas a um veículo específico",
-    response_description="Mensagens do veículo"
+@message_router.patch(
+    "/{message_id}/finished",
+    response_model=MessageResponse,
+    summary="Definir status como Finalizado",
+    description="Define o status da mensagem como 'Finalizado'.",
+    responses={
+        200: {"description": "Status atualizado para Finalizado"},
+        404: {"description": "Mensagem não encontrada"},
+        500: {"description": "Erro interno do servidor"}
+    }
 )
-async def get_messages_by_vehicle(
-    vehicle_id: UUID = Path(..., description="ID do veículo"),
+async def set_finished_status(
+    message_id: int = Path(..., gt=0, description="ID da mensagem"),
     controller: MessageController = Depends(get_message_controller)
-):
-    """
-    Lista mensagens de interesse em um veículo específico.
-    
-    Útil para analisar o interesse e demanda por veículos.
-    """
-    try:
-        result = await controller.get_messages_by_vehicle(vehicle_id)
-        
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={
-                "success": True,
-                "data": result
-            }
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erro interno: {str(e)}"
-        )
+) -> MessageResponse:
+    """Define status como 'Finalizado'."""
+    return await controller.set_finished_status(message_id)
 
-
-@message_router.get(
-    "/responsible/{responsible_id}",
-    summary="Mensagens por responsável",
-    description="Lista mensagens atribuídas a um funcionário específico",
-    response_description="Mensagens do responsável"
+@message_router.patch(
+    "/{message_id}/cancelled",
+    response_model=MessageResponse,
+    summary="Definir status como Cancelado",
+    description="Define o status da mensagem como 'Cancelado'.",
+    responses={
+        200: {"description": "Status atualizado para Cancelado"},
+        404: {"description": "Mensagem não encontrada"},
+        500: {"description": "Erro interno do servidor"}
+    }
 )
-async def get_messages_by_responsible(
-    responsible_id: UUID = Path(..., description="ID do funcionário responsável"),
+async def set_cancelled_status(
+    message_id: int = Path(..., gt=0, description="ID da mensagem"),
     controller: MessageController = Depends(get_message_controller)
-):
-    """
-    Lista mensagens atribuídas a um funcionário específico.
-    
-    Inclui métricas de performance do funcionário.
-    """
-    try:
-        result = await controller.get_messages_by_responsible(responsible_id)
-        
-        return JSONResponse(
-            status_code=status.HTTP_200_OK,
-            content={
-                "success": True,
-                "data": result
-            }
-        )
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erro interno: {str(e)}"
-        )
+) -> MessageResponse:
+    """Define status como 'Cancelado'."""
+    return await controller.set_cancelled_status(message_id)

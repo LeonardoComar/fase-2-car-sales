@@ -1,343 +1,209 @@
 """
 Entidade Message - Domain Layer
 
-Representa uma mensagem de contato/interesse em um veículo no sistema de vendas.
-Aplicando os princípios da Clean Architecture:
-- Independente de frameworks
-- Independente de UI
-- Independente de banco de dados
-- Testável
-- Independente de agentes externos
+Entidade que representa uma mensagem no domínio da aplicação.
 
 Aplicando princípios SOLID:
-- SRP: Responsável apenas pela lógica de negócio de mensagens
-- OCP: Aberto para extensão (novos status, validações)
-- LSP: Pode ser substituída por implementações específicas
-- ISP: Interface coesa sem métodos desnecessários
-- DIP: Não depende de implementações concretas
+- SRP: Responsável apenas por representar e validar dados de mensagens
+- OCP: Extensível para novas funcionalidades sem modificar código existente
+- LSP: Pode ser substituída por especializações
+- ISP: Interface específica e coesa
+- DIP: Não depende de detalhes de implementação
 """
 
-from dataclasses import dataclass, field
-from datetime import datetime
 from typing import Optional
-from uuid import UUID, uuid4
-import re
+from datetime import datetime
 
 
-@dataclass
 class Message:
     """
-    Entidade Message representando uma mensagem de contato no domínio.
-    
-    Contém toda a lógica de negócio relacionada a mensagens de interesse
-    em veículos, incluindo validações e regras de status.
+    Entidade Message que representa uma mensagem no domínio da aplicação.
     """
     
-    # Constantes de Status
+    # Status possíveis para mensagens
     STATUS_PENDENTE = "Pendente"
     STATUS_CONTATO_INICIADO = "Contato iniciado"
     STATUS_FINALIZADO = "Finalizado"
     STATUS_CANCELADO = "Cancelado"
     
-    VALID_STATUSES = [
-        STATUS_PENDENTE,
-        STATUS_CONTATO_INICIADO,
-        STATUS_FINALIZADO,
-        STATUS_CANCELADO
-    ]
-    
-    # Constantes de Validação
-    MAX_NAME_LENGTH = 100
-    MAX_EMAIL_LENGTH = 100
-    MAX_PHONE_LENGTH = 50
-    MAX_MESSAGE_LENGTH = 5000
-    
-    # Regex para validação de email
-    EMAIL_PATTERN = re.compile(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$')
-    
-    # Regex para validação de telefone brasileiro
-    PHONE_PATTERN = re.compile(r'^\(\d{2}\)\s\d{4,5}-\d{4}$|^\d{10,11}$')
-    
-    # Atributos da entidade
-    id: Optional[UUID] = field(default_factory=uuid4)
-    responsible_id: Optional[UUID] = None
-    vehicle_id: Optional[UUID] = None
-    name: str = ""
-    email: str = ""
-    phone: Optional[str] = None
-    message: str = ""
-    status: str = field(default=STATUS_PENDENTE)
-    service_start_time: Optional[datetime] = None
-    created_at: datetime = field(default_factory=datetime.utcnow)
-    updated_at: datetime = field(default_factory=datetime.utcnow)
-    
-    @classmethod
-    def create_message(cls, name: str, email: str, message: str, 
-                      vehicle_id: Optional[UUID] = None, 
-                      phone: Optional[str] = None) -> 'Message':
+    VALID_STATUSES = [STATUS_PENDENTE, STATUS_CONTATO_INICIADO, STATUS_FINALIZADO, STATUS_CANCELADO]
+
+    def __init__(
+        self,
+        name: str,
+        email: str,
+        message: str,
+        phone: Optional[str] = None,
+        vehicle_id: Optional[int] = None,
+        responsible_id: Optional[int] = None,
+        status: str = STATUS_PENDENTE,
+        service_start_time: Optional[datetime] = None,
+        id: Optional[int] = None,
+        created_at: Optional[datetime] = None,
+        updated_at: Optional[datetime] = None
+    ):
         """
-        Factory method para criar uma nova mensagem.
+        Inicializa uma nova mensagem.
         
         Args:
-            name: Nome do interessado
-            email: Email do interessado
-            message: Mensagem/interesse
-            vehicle_id: ID do veículo de interesse (opcional)
-            phone: Telefone do interessado (opcional)
-            
-        Returns:
-            Message: Nova instância de mensagem
-            
-        Raises:
-            ValueError: Se dados inválidos
+            name: Nome do remetente
+            email: Email do remetente
+            message: Conteúdo da mensagem
+            phone: Telefone do remetente (opcional)
+            vehicle_id: ID do veículo relacionado (opcional)
+            responsible_id: ID do funcionário responsável (opcional)
+            status: Status da mensagem
+            service_start_time: Data/hora de início do atendimento (opcional)
+            id: ID da mensagem (opcional, para entidades já persistidas)
+            created_at: Data de criação (opcional)
+            updated_at: Data de atualização (opcional)
         """
-        # Criar instância
-        new_message = cls(
-            name=name.strip(),
-            email=email.strip().lower(),
-            message=message.strip(),
-            vehicle_id=vehicle_id,
-            phone=phone.strip() if phone else None
-        )
+        # Validações de negócio
+        if not name or len(name.strip()) == 0:
+            raise ValueError("Nome é obrigatório")
         
-        # Validar dados
-        new_message._validate_creation_data()
+        if not email or len(email.strip()) == 0:
+            raise ValueError("Email é obrigatório")
         
-        return new_message
+        if not message or len(message.strip()) == 0:
+            raise ValueError("Mensagem é obrigatória")
+        
+        if status not in self.VALID_STATUSES:
+            raise ValueError(f"Status deve ser um dos valores: {', '.join(self.VALID_STATUSES)}")
+        
+        # Validação de email básica
+        if "@" not in email:
+            raise ValueError("Email deve ter um formato válido")
+        
+        # Atribuições
+        self._id = id
+        self._name = name.strip()
+        self._email = email.strip().lower()
+        self._phone = phone.strip() if phone else None
+        self._message = message.strip()
+        self._vehicle_id = vehicle_id
+        self._responsible_id = responsible_id
+        self._status = status
+        self._service_start_time = service_start_time
+        self._created_at = created_at or datetime.utcnow()
+        self._updated_at = updated_at or datetime.utcnow()
     
-    def assign_responsible(self, responsible_id: UUID) -> None:
-        """
-        Atribui um responsável para a mensagem.
-        
-        Args:
-            responsible_id: ID do funcionário responsável
-            
-        Raises:
-            ValueError: Se mensagem já finalizada ou cancelada
-        """
-        if self.status in [self.STATUS_FINALIZADO, self.STATUS_CANCELADO]:
-            raise ValueError(f"Não é possível atribuir responsável para mensagem com status '{self.status}'")
-        
-        self.responsible_id = responsible_id
-        self.updated_at = datetime.utcnow()
+    # Properties (getters)
+    @property
+    def id(self) -> Optional[int]:
+        return self._id
     
-    def start_service(self, responsible_id: UUID) -> None:
+    @property
+    def name(self) -> str:
+        return self._name
+    
+    @property
+    def email(self) -> str:
+        return self._email
+    
+    @property
+    def phone(self) -> Optional[str]:
+        return self._phone
+    
+    @property
+    def message(self) -> str:
+        return self._message
+    
+    @property
+    def vehicle_id(self) -> Optional[int]:
+        return self._vehicle_id
+    
+    @property
+    def responsible_id(self) -> Optional[int]:
+        return self._responsible_id
+    
+    @property
+    def status(self) -> str:
+        return self._status
+    
+    @property
+    def service_start_time(self) -> Optional[datetime]:
+        return self._service_start_time
+    
+    @property
+    def created_at(self) -> datetime:
+        return self._created_at
+    
+    @property
+    def updated_at(self) -> datetime:
+        return self._updated_at
+    
+    # Métodos de negócio
+    def start_service(self, responsible_id: int) -> None:
         """
         Inicia o atendimento da mensagem.
         
         Args:
-            responsible_id: ID do funcionário responsável
-            
-        Raises:
-            ValueError: Se mensagem não pode ser iniciada
+            responsible_id: ID do funcionário responsável pelo atendimento
         """
-        if self.status != self.STATUS_PENDENTE:
-            raise ValueError(f"Mensagem deve estar '{self.STATUS_PENDENTE}' para iniciar atendimento")
+        if self._responsible_id is not None:
+            raise ValueError("Mensagem já possui responsável atribuído")
         
-        self.responsible_id = responsible_id
-        self.status = self.STATUS_CONTATO_INICIADO
-        self.service_start_time = datetime.utcnow()
-        self.updated_at = datetime.utcnow()
+        if self._status != self.STATUS_PENDENTE:
+            raise ValueError(f"Só é possível iniciar atendimento de mensagens com status '{self.STATUS_PENDENTE}'")
+        
+        self._responsible_id = responsible_id
+        self._service_start_time = datetime.utcnow()
+        self._status = self.STATUS_CONTATO_INICIADO
+        self._updated_at = datetime.utcnow()
+    
+    def update_status(self, new_status: str) -> None:
+        """
+        Atualiza o status da mensagem.
+        
+        Args:
+            new_status: Novo status da mensagem
+        """
+        if new_status not in self.VALID_STATUSES:
+            raise ValueError(f"Status deve ser um dos valores: {', '.join(self.VALID_STATUSES)}")
+        
+        self._status = new_status
+        self._updated_at = datetime.utcnow()
     
     def finish_service(self) -> None:
         """
         Finaliza o atendimento da mensagem.
-        
-        Raises:
-            ValueError: Se mensagem não pode ser finalizada
         """
-        if self.status not in [self.STATUS_PENDENTE, self.STATUS_CONTATO_INICIADO]:
-            raise ValueError(f"Mensagem deve estar em atendimento para ser finalizada")
+        if self._responsible_id is None:
+            raise ValueError("Não é possível finalizar uma mensagem sem responsável atribuído")
         
-        if self.status == self.STATUS_PENDENTE:
-            # Se ainda estava pendente, marcar horário de início
-            self.service_start_time = datetime.utcnow()
+        if self._status in [self.STATUS_FINALIZADO, self.STATUS_CANCELADO]:
+            raise ValueError(f"Mensagem já está finalizada ou cancelada")
         
-        self.status = self.STATUS_FINALIZADO
-        self.updated_at = datetime.utcnow()
+        self._status = self.STATUS_FINALIZADO
+        self._updated_at = datetime.utcnow()
     
-    def cancel_message(self, reason: Optional[str] = None) -> None:
+    def cancel_service(self) -> None:
         """
-        Cancela a mensagem.
-        
-        Args:
-            reason: Motivo do cancelamento (opcional)
-            
-        Raises:
-            ValueError: Se mensagem já finalizada
+        Cancela o atendimento da mensagem.
         """
-        if self.status == self.STATUS_FINALIZADO:
-            raise ValueError("Não é possível cancelar mensagem já finalizada")
+        if self._status == self.STATUS_CANCELADO:
+            raise ValueError("Mensagem já está cancelada")
         
-        self.status = self.STATUS_CANCELADO
-        self.updated_at = datetime.utcnow()
-        
-        # Adicionar motivo ao final da mensagem se fornecido
-        if reason:
-            self.message += f"\n\n[CANCELAMENTO: {reason}]"
+        self._status = self.STATUS_CANCELADO
+        self._updated_at = datetime.utcnow()
     
-    def update_contact_info(self, name: Optional[str] = None, 
-                           email: Optional[str] = None, 
-                           phone: Optional[str] = None) -> None:
-        """
-        Atualiza informações de contato.
-        
-        Args:
-            name: Novo nome (opcional)
-            email: Novo email (opcional)
-            phone: Novo telefone (opcional)
-            
-        Raises:
-            ValueError: Se dados inválidos ou mensagem finalizada
-        """
-        if self.status in [self.STATUS_FINALIZADO, self.STATUS_CANCELADO]:
-            raise ValueError(f"Não é possível atualizar mensagem com status '{self.status}'")
-        
-        # Atualizar campos fornecidos
-        if name is not None:
-            self.name = name.strip()
-            self._validate_name()
-        
-        if email is not None:
-            self.email = email.strip().lower()
-            self._validate_email()
-        
-        if phone is not None:
-            self.phone = phone.strip() if phone else None
-            if self.phone:
-                self._validate_phone()
-        
-        self.updated_at = datetime.utcnow()
+    def __eq__(self, other) -> bool:
+        """Verifica igualdade entre duas mensagens."""
+        if not isinstance(other, Message):
+            return False
+        return self._id is not None and self._id == other._id
     
-    def update_message_content(self, new_message: str) -> None:
-        """
-        Atualiza o conteúdo da mensagem.
-        
-        Args:
-            new_message: Novo conteúdo da mensagem
-            
-        Raises:
-            ValueError: Se mensagem finalizada ou conteúdo inválido
-        """
-        if self.status in [self.STATUS_FINALIZADO, self.STATUS_CANCELADO]:
-            raise ValueError(f"Não é possível atualizar mensagem com status '{self.status}'")
-        
-        self.message = new_message.strip()
-        self._validate_message_content()
-        self.updated_at = datetime.utcnow()
-    
-    def is_pending(self) -> bool:
-        """Verifica se a mensagem está pendente."""
-        return self.status == self.STATUS_PENDENTE
-    
-    def is_in_service(self) -> bool:
-        """Verifica se a mensagem está em atendimento."""
-        return self.status == self.STATUS_CONTATO_INICIADO
-    
-    def is_finished(self) -> bool:
-        """Verifica se a mensagem foi finalizada."""
-        return self.status == self.STATUS_FINALIZADO
-    
-    def is_cancelled(self) -> bool:
-        """Verifica se a mensagem foi cancelada."""
-        return self.status == self.STATUS_CANCELADO
-    
-    def is_active(self) -> bool:
-        """Verifica se a mensagem está ativa (não cancelada)."""
-        return self.status != self.STATUS_CANCELADO
-    
-    def has_responsible(self) -> bool:
-        """Verifica se a mensagem tem responsável atribuído."""
-        return self.responsible_id is not None
-    
-    def has_vehicle(self) -> bool:
-        """Verifica se a mensagem está relacionada a um veículo."""
-        return self.vehicle_id is not None
-    
-    def get_service_duration_minutes(self) -> Optional[int]:
-        """
-        Calcula duração do atendimento em minutos.
-        
-        Returns:
-            int: Duração em minutos ou None se não iniciado
-        """
-        if not self.service_start_time:
-            return None
-        
-        end_time = datetime.utcnow()
-        if self.is_finished():
-            end_time = self.updated_at
-        
-        duration = end_time - self.service_start_time
-        return int(duration.total_seconds() / 60)
-    
-    def _validate_creation_data(self) -> None:
-        """Valida dados obrigatórios para criação."""
-        self._validate_name()
-        self._validate_email()
-        self._validate_message_content()
-        
-        if self.phone:
-            self._validate_phone()
-    
-    def _validate_name(self) -> None:
-        """Valida o nome."""
-        if not self.name or not self.name.strip():
-            raise ValueError("Nome é obrigatório")
-        
-        if len(self.name) > self.MAX_NAME_LENGTH:
-            raise ValueError(f"Nome deve ter no máximo {self.MAX_NAME_LENGTH} caracteres")
-        
-        # Verificar se contém apenas letras, espaços e acentos
-        if not re.match(r'^[a-zA-ZÀ-ÿ\s]+$', self.name):
-            raise ValueError("Nome deve conter apenas letras e espaços")
-    
-    def _validate_email(self) -> None:
-        """Valida o email."""
-        if not self.email or not self.email.strip():
-            raise ValueError("Email é obrigatório")
-        
-        if len(self.email) > self.MAX_EMAIL_LENGTH:
-            raise ValueError(f"Email deve ter no máximo {self.MAX_EMAIL_LENGTH} caracteres")
-        
-        if not self.EMAIL_PATTERN.match(self.email):
-            raise ValueError("Formato de email inválido")
-    
-    def _validate_phone(self) -> None:
-        """Valida o telefone."""
-        if self.phone and len(self.phone) > self.MAX_PHONE_LENGTH:
-            raise ValueError(f"Telefone deve ter no máximo {self.MAX_PHONE_LENGTH} caracteres")
-        
-        if self.phone and not self.PHONE_PATTERN.match(self.phone):
-            raise ValueError("Formato de telefone inválido. Use (11) 99999-9999 ou 11999999999")
-    
-    def _validate_message_content(self) -> None:
-        """Valida o conteúdo da mensagem."""
-        if not self.message or not self.message.strip():
-            raise ValueError("Mensagem é obrigatória")
-        
-        if len(self.message) > self.MAX_MESSAGE_LENGTH:
-            raise ValueError(f"Mensagem deve ter no máximo {self.MAX_MESSAGE_LENGTH} caracteres")
-    
-    def _validate_status(self) -> None:
-        """Valida o status."""
-        if self.status not in self.VALID_STATUSES:
-            raise ValueError(f"Status deve ser um de: {', '.join(self.VALID_STATUSES)}")
-    
-    def __post_init__(self):
-        """Validações após inicialização."""
-        if self.status not in self.VALID_STATUSES:
-            self.status = self.STATUS_PENDENTE
-        
-        # Garantir que timestamps estejam definidos
-        if not self.created_at:
-            self.created_at = datetime.utcnow()
-        if not self.updated_at:
-            self.updated_at = datetime.utcnow()
+    def __hash__(self) -> int:
+        """Hash baseado no ID da mensagem."""
+        return hash(self._id) if self._id else hash((self._email, self._created_at))
     
     def __str__(self) -> str:
-        return f"Message(id={self.id}, name='{self.name}', status='{self.status}')"
+        """Representação string da mensagem."""
+        return f"Message(id={self._id}, name='{self._name}', status='{self._status}')"
     
     def __repr__(self) -> str:
-        return (f"Message(id={self.id}, name='{self.name}', email='{self.email}', "
-                f"status='{self.status}', created_at={self.created_at})")
+        """Representação detalhada da mensagem."""
+        return (f"Message(id={self._id}, name='{self._name}', email='{self._email}', "
+                f"status='{self._status}', vehicle_id={self._vehicle_id}, "
+                f"responsible_id={self._responsible_id})")

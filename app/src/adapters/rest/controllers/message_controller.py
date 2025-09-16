@@ -1,84 +1,69 @@
 """
-Controller para Message - Adapters Layer
+Controller para Mensagens - Adapter Layer
 
-Responsável por receber requisições HTTP, validar dados e coordenar
-a execução dos casos de uso de mensagens.
-Aplicando Clean Architecture e princípios SOLID.
+Responsável por coordenar as requisições HTTP relacionadas a mensagens.
+
+Aplicando princípios SOLID:
+- SRP: Responsável apenas por coordenar operações de mensagens
+- OCP: Extensível para novas operações sem modificar código existente
+- LSP: Pode ser substituído por outras implementações
+- ISP: Interface específica para operações de mensagens
+- DIP: Depende de abstrações (use cases) não de implementações
 """
 
-from typing import Dict, Any, Optional
-from uuid import UUID
-from datetime import date
-
-from src.application.use_cases.messages import (
-    CreateMessageUseCase,
-    GetMessageByIdUseCase,
-    UpdateMessageUseCase,
-    DeleteMessageUseCase,
-    ListMessagesUseCase,
-    AssignMessageUseCase,
-    UpdateMessageStatusUseCase,
-    GetMessagesStatisticsUseCase,
-)
-
+from typing import List, Optional
+from fastapi import HTTPException, Query
+from fastapi.responses import JSONResponse
+from src.application.use_cases.messages.create_message_use_case import CreateMessageUseCase
+from src.application.use_cases.messages.get_message_by_id_use_case import GetMessageByIdUseCase
+from src.application.use_cases.messages.get_all_messages_use_case import GetAllMessagesUseCase
+from src.application.use_cases.messages.start_service_use_case import StartServiceUseCase
+from src.application.use_cases.messages.update_message_status_use_case import UpdateMessageStatusUseCase
 from src.application.dtos.message_dto import (
-    MessageCreateDto,
-    MessageUpdateDto,
-    MessageAssignDto,
-    MessageStatusUpdateDto,
-    MessageSearchDto
+    CreateMessageRequest,
+    StartServiceRequest,
+    UpdateMessageStatusRequest,
+    MessageResponse,
+    MessageCreatedResponse,
+    MessageListResponse,
+    MessageFilters,
+    MessageStatus
 )
-
-from src.adapters.rest.presenters.message_presenter import MessagePresenter
 
 
 class MessageController:
     """
-    Controller para operações com mensagens.
+    Controller para gerenciamento de mensagens.
     
-    Aplicando princípios SOLID:
-    - SRP: Responsável apenas por coordenar operações de mensagens via HTTP
-    - OCP: Extensível para novos endpoints
-    - LSP: Pode ser substituído por outras implementações
-    - ISP: Interface coesa com métodos específicos
-    - DIP: Depende de abstrações (use cases)
+    Coordena as operações CRUD e consultas relacionadas a mensagens,
+    delegando a lógica de negócio para os use cases apropriados.
     """
     
-    def __init__(self,
-                 create_message_use_case: CreateMessageUseCase,
-                 get_message_by_id_use_case: GetMessageByIdUseCase,
-                 update_message_use_case: UpdateMessageUseCase,
-                 delete_message_use_case: DeleteMessageUseCase,
-                 list_messages_use_case: ListMessagesUseCase,
-                 assign_message_use_case: AssignMessageUseCase,
-                 update_message_status_use_case: UpdateMessageStatusUseCase,
-                 get_messages_statistics_use_case: GetMessagesStatisticsUseCase,
-                 message_presenter: MessagePresenter):
+    def __init__(
+        self,
+        create_message_use_case: CreateMessageUseCase,
+        get_message_by_id_use_case: GetMessageByIdUseCase,
+        get_all_messages_use_case: GetAllMessagesUseCase,
+        start_service_use_case: StartServiceUseCase,
+        update_message_status_use_case: UpdateMessageStatusUseCase
+    ):
         """
-        Inicializa o controller com as dependências necessárias.
+        Inicializa o controller com os use cases necessários.
         
         Args:
-            create_message_use_case: Caso de uso para criar mensagem
-            get_message_by_id_use_case: Caso de uso para buscar mensagem por ID
-            update_message_use_case: Caso de uso para atualizar mensagem
-            delete_message_use_case: Caso de uso para deletar mensagem
-            list_messages_use_case: Caso de uso para listar mensagens
-            assign_message_use_case: Caso de uso para atribuir responsável
-            update_message_status_use_case: Caso de uso para atualizar status
-            get_messages_statistics_use_case: Caso de uso para estatísticas
-            message_presenter: Presenter para formatação de dados
+            create_message_use_case: Use case para criação de mensagens
+            get_message_by_id_use_case: Use case para busca por ID
+            get_all_messages_use_case: Use case para listagem de mensagens
+            start_service_use_case: Use case para início de atendimento
+            update_message_status_use_case: Use case para atualização de status
         """
         self._create_message_use_case = create_message_use_case
         self._get_message_by_id_use_case = get_message_by_id_use_case
-        self._update_message_use_case = update_message_use_case
-        self._delete_message_use_case = delete_message_use_case
-        self._list_messages_use_case = list_messages_use_case
-        self._assign_message_use_case = assign_message_use_case
+        self._get_all_messages_use_case = get_all_messages_use_case
+        self._start_service_use_case = start_service_use_case
         self._update_message_status_use_case = update_message_status_use_case
-        self._get_messages_statistics_use_case = get_messages_statistics_use_case
-        self._presenter = message_presenter
     
-    async def create_message(self, message_data: MessageCreateDto) -> Dict[str, Any]:
+    async def create_message(self, message_data: CreateMessageRequest) -> MessageCreatedResponse:
         """
         Cria uma nova mensagem.
         
@@ -86,19 +71,21 @@ class MessageController:
             message_data: Dados da mensagem a ser criada
             
         Returns:
-            Dict: Resposta formatada com dados da mensagem criada
+            MessageCreatedResponse: Dados da mensagem criada
             
         Raises:
-            ValueError: Se dados inválidos
-            Exception: Se erro interno
+            HTTPException: Em caso de erro na criação
         """
-        # Executar caso de uso
-        message_dto = await self._create_message_use_case.execute(message_data)
+        try:
+            return await self._create_message_use_case.execute(message_data)
         
-        # Formatar resposta
-        return self._presenter.present_message(message_dto)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Erro interno do servidor: {str(e)}")
     
-    async def get_message_by_id(self, message_id: UUID) -> Optional[Dict[str, Any]]:
+    async def get_message_by_id(self, message_id: int) -> MessageResponse:
         """
         Busca uma mensagem por ID.
         
@@ -106,204 +93,158 @@ class MessageController:
             message_id: ID da mensagem
             
         Returns:
-            Optional[Dict]: Dados da mensagem ou None se não encontrada
+            MessageResponse: Dados da mensagem encontrada
+            
+        Raises:
+            HTTPException: Se mensagem não for encontrada ou houver erro
         """
-        # Executar caso de uso
-        message_dto = await self._get_message_by_id_use_case.execute(message_id)
+        try:
+            message = await self._get_message_by_id_use_case.execute(message_id)
+            
+            if not message:
+                raise HTTPException(status_code=404, detail=f"Mensagem com ID {message_id} não encontrada")
+            
+            return message
+            
+        except HTTPException:
+            raise
         
-        if not message_dto:
-            return None
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
         
-        # Formatar resposta
-        return self._presenter.present_message(message_dto)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Erro interno do servidor: {str(e)}")
     
-    async def update_message(self, message_id: UUID, update_data: MessageUpdateDto) -> Optional[Dict[str, Any]]:
+    async def get_all_messages(
+        self,
+        status: Optional[str] = None,
+        responsible_id: Optional[int] = None,
+        vehicle_id: Optional[int] = None,
+        page: int = 1,
+        limit: int = 10,
+        order_by: str = "created_at",
+        order_direction: str = "desc"
+    ) -> MessageListResponse:
         """
-        Atualiza uma mensagem.
+        Lista mensagens com filtros opcionais.
+        
+        Args:
+            status: Filtro por status (opcional)
+            responsible_id: Filtro por responsável (opcional)
+            vehicle_id: Filtro por veículo (opcional)
+            page: Número da página
+            limit: Itens por página
+            order_by: Campo para ordenação
+            order_direction: Direção da ordenação
+            
+        Returns:
+            MessageListResponse: Lista de mensagens e metadados de paginação
+            
+        Raises:
+            HTTPException: Em caso de erro na listagem
+        """
+        try:
+            # Converter status string para enum se fornecido
+            status_enum = None
+            if status:
+                try:
+                    status_enum = MessageStatus(status)
+                except ValueError:
+                    raise HTTPException(
+                        status_code=400, 
+                        detail=f"Status inválido. Valores válidos: {[s.value for s in MessageStatus]}"
+                    )
+            
+            filters = MessageFilters(
+                status=status_enum,
+                responsible_id=responsible_id,
+                vehicle_id=vehicle_id,
+                page=page,
+                limit=limit,
+                order_by=order_by,
+                order_direction=order_direction
+            )
+            
+            return await self._get_all_messages_use_case.execute(filters)
+            
+        except HTTPException:
+            raise
+        
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+        
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Erro interno do servidor: {str(e)}")
+    
+    async def start_service(self, message_id: int, service_data: StartServiceRequest) -> MessageResponse:
+        """
+        Inicia o atendimento de uma mensagem.
         
         Args:
             message_id: ID da mensagem
-            update_data: Dados para atualização
+            service_data: Dados do início de atendimento
             
         Returns:
-            Optional[Dict]: Dados da mensagem atualizada ou None se não encontrada
+            MessageResponse: Dados da mensagem com atendimento iniciado
             
         Raises:
-            ValueError: Se dados inválidos ou operação não permitida
-            Exception: Se erro interno
+            HTTPException: Em caso de erro no início do atendimento
         """
-        # Executar caso de uso
-        message_dto = await self._update_message_use_case.execute(message_id, update_data)
+        try:
+            return await self._start_service_use_case.execute(message_id, service_data)
+            
+        except ValueError as e:
+            if "não encontrada" in str(e):
+                raise HTTPException(status_code=404, detail=str(e))
+            else:
+                raise HTTPException(status_code=400, detail=str(e))
         
-        if not message_dto:
-            return None
-        
-        # Formatar resposta
-        return self._presenter.present_message(message_dto)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Erro interno do servidor: {str(e)}")
     
-    async def delete_message(self, message_id: UUID) -> bool:
+    async def update_status(self, message_id: int, status_data: UpdateMessageStatusRequest) -> MessageResponse:
         """
-        Remove uma mensagem.
+        Atualiza o status de uma mensagem.
         
         Args:
             message_id: ID da mensagem
+            status_data: Dados do novo status
             
         Returns:
-            bool: True se removida, False se não encontrada
+            MessageResponse: Dados da mensagem com status atualizado
             
         Raises:
-            Exception: Se erro interno
+            HTTPException: Em caso de erro na atualização
         """
-        # Executar caso de uso
-        return await self._delete_message_use_case.execute(message_id)
+        try:
+            return await self._update_message_status_use_case.execute(message_id, status_data)
+            
+        except ValueError as e:
+            if "não encontrada" in str(e):
+                raise HTTPException(status_code=404, detail=str(e))
+            else:
+                raise HTTPException(status_code=400, detail=str(e))
+        
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Erro interno do servidor: {str(e)}")
     
-    async def list_messages(self, search_params: MessageSearchDto) -> Dict[str, Any]:
-        """
-        Lista mensagens com filtros.
-        
-        Args:
-            search_params: Parâmetros de busca
-            
-        Returns:
-            Dict: Lista de mensagens formatada
-        """
-        # Executar caso de uso
-        messages_dto = await self._list_messages_use_case.execute(search_params)
-        
-        # Formatar resposta
-        return self._presenter.present_message_list(messages_dto)
+    # Métodos de conveniência para status específicos
+    async def set_pending_status(self, message_id: int) -> MessageResponse:
+        """Define status como 'Pendente'."""
+        status_data = UpdateMessageStatusRequest(status=MessageStatus.PENDENTE)
+        return await self.update_status(message_id, status_data)
     
-    async def assign_message(self, message_id: UUID, assign_data: MessageAssignDto) -> Optional[Dict[str, Any]]:
-        """
-        Atribui responsável a uma mensagem.
-        
-        Args:
-            message_id: ID da mensagem
-            assign_data: Dados de atribuição
-            
-        Returns:
-            Optional[Dict]: Dados da mensagem atualizada ou None se não encontrada
-            
-        Raises:
-            ValueError: Se operação não permitida
-            Exception: Se erro interno
-        """
-        # Executar caso de uso
-        message_dto = await self._assign_message_use_case.execute(message_id, assign_data)
-        
-        if not message_dto:
-            return None
-        
-        # Formatar resposta
-        return self._presenter.present_message(message_dto)
+    async def set_contact_initiated_status(self, message_id: int) -> MessageResponse:
+        """Define status como 'Contato iniciado'."""
+        status_data = UpdateMessageStatusRequest(status=MessageStatus.CONTATO_INICIADO)
+        return await self.update_status(message_id, status_data)
     
-    async def update_message_status(self, message_id: UUID, status_data: MessageStatusUpdateDto) -> Optional[Dict[str, Any]]:
-        """
-        Atualiza status de uma mensagem.
-        
-        Args:
-            message_id: ID da mensagem
-            status_data: Dados de atualização de status
-            
-        Returns:
-            Optional[Dict]: Dados da mensagem atualizada ou None se não encontrada
-            
-        Raises:
-            ValueError: Se status inválido ou operação não permitida
-            Exception: Se erro interno
-        """
-        # Executar caso de uso
-        message_dto = await self._update_message_status_use_case.execute(message_id, status_data)
-        
-        if not message_dto:
-            return None
-        
-        # Formatar resposta
-        return self._presenter.present_message(message_dto)
+    async def set_finished_status(self, message_id: int) -> MessageResponse:
+        """Define status como 'Finalizado'."""
+        status_data = UpdateMessageStatusRequest(status=MessageStatus.FINALIZADO)
+        return await self.update_status(message_id, status_data)
     
-    async def get_messages_statistics(self, start_date: Optional[date] = None, 
-                                    end_date: Optional[date] = None) -> Dict[str, Any]:
-        """
-        Obtém estatísticas de mensagens.
-        
-        Args:
-            start_date: Data inicial para filtro
-            end_date: Data final para filtro
-            
-        Returns:
-            Dict: Estatísticas formatadas
-        """
-        # Executar caso de uso
-        stats_dto = await self._get_messages_statistics_use_case.execute(start_date, end_date)
-        
-        # Formatar resposta
-        return self._presenter.present_messages_statistics(stats_dto)
-    
-    async def get_pending_messages(self) -> Dict[str, Any]:
-        """
-        Obtém mensagens pendentes com prioridade.
-        
-        Returns:
-            Dict: Mensagens pendentes formatadas
-        """
-        # Criar parâmetros de busca para mensagens pendentes
-        search_params = MessageSearchDto(
-            pending_only=True,
-            order_by="created_at",
-            order_direction="asc",  # Mais antigas primeiro
-            limit=100
-        )
-        
-        # Executar caso de uso
-        messages_dto = await self._list_messages_use_case.execute(search_params)
-        
-        # Formatar resposta específica para pendentes
-        return self._presenter.present_pending_messages(messages_dto)
-    
-    async def get_messages_by_vehicle(self, vehicle_id: UUID) -> Dict[str, Any]:
-        """
-        Obtém mensagens relacionadas a um veículo.
-        
-        Args:
-            vehicle_id: ID do veículo
-            
-        Returns:
-            Dict: Mensagens do veículo formatadas
-        """
-        # Criar parâmetros de busca por veículo
-        search_params = MessageSearchDto(
-            vehicle_id=vehicle_id,
-            order_by="created_at",
-            order_direction="desc",
-            limit=100
-        )
-        
-        # Executar caso de uso
-        messages_dto = await self._list_messages_use_case.execute(search_params)
-        
-        # Formatar resposta específica para veículo
-        return self._presenter.present_messages_by_vehicle(str(vehicle_id), messages_dto)
-    
-    async def get_messages_by_responsible(self, responsible_id: UUID) -> Dict[str, Any]:
-        """
-        Obtém mensagens de um responsável.
-        
-        Args:
-            responsible_id: ID do responsável
-            
-        Returns:
-            Dict: Mensagens do responsável formatadas
-        """
-        # Criar parâmetros de busca por responsável
-        search_params = MessageSearchDto(
-            responsible_id=responsible_id,
-            order_by="created_at",
-            order_direction="desc",
-            limit=100
-        )
-        
-        # Executar caso de uso
-        messages_dto = await self._list_messages_use_case.execute(search_params)
-        
-        # Formatar resposta específica para responsável
-        return self._presenter.present_messages_by_responsible(str(responsible_id), messages_dto)
+    async def set_cancelled_status(self, message_id: int) -> MessageResponse:
+        """Define status como 'Cancelado'."""
+        status_data = UpdateMessageStatusRequest(status=MessageStatus.CANCELADO)
+        return await self.update_status(message_id, status_data)

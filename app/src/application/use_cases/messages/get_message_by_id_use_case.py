@@ -1,77 +1,73 @@
 """
-Caso de uso para buscar mensagem por ID - Application Layer
+Use Case para Buscar Mensagem por ID - Application Layer
 
-Implementa a lógica de aplicação para buscar uma mensagem específica.
-Aplicando Clean Architecture e princípios SOLID.
+Responsável por buscar mensagens por ID aplicando regras de negócio.
+
+Aplicando princípios SOLID:
+- SRP: Responsável apenas pela busca de mensagens por ID
+- OCP: Extensível para novas validações sem modificar código existente
+- LSP: Pode ser substituído por outras implementações
+- ISP: Interface específica para busca
+- DIP: Depende de abstrações (repositórios) não de implementações
 """
 
-from uuid import UUID
 from typing import Optional
-
 from src.domain.entities.message import Message
 from src.domain.ports.message_repository import MessageRepository
-from src.application.dtos.message_dto import MessageResponseDto
+from src.application.dtos.message_dto import MessageResponse
 
 
 class GetMessageByIdUseCase:
     """
-    Caso de uso para buscar mensagem por ID.
+    Use Case para busca de mensagens por ID.
     
-    Aplicando princípios SOLID:
-    - SRP: Responsável apenas pela busca de mensagem por ID
-    - OCP: Extensível para novas funcionalidades
-    - LSP: Pode ser substituído por outras implementações
-    - ISP: Interface coesa
-    - DIP: Depende de abstrações (MessageRepository)
+    Coordena a busca e conversão de dados para resposta.
     """
     
     def __init__(self, message_repository: MessageRepository):
         """
-        Inicializa o caso de uso.
+        Inicializa o use case com as dependências necessárias.
         
         Args:
             message_repository: Repositório de mensagens
         """
         self._message_repository = message_repository
     
-    async def execute(self, message_id: UUID) -> Optional[MessageResponseDto]:
+    async def execute(self, message_id: int) -> Optional[MessageResponse]:
         """
-        Executa a busca de mensagem por ID.
+        Executa a busca de uma mensagem por ID.
         
         Args:
             message_id: ID da mensagem a ser buscada
             
         Returns:
-            Optional[MessageResponseDto]: Dados da mensagem ou None se não encontrada
+            Optional[MessageResponse]: Dados da mensagem encontrada ou None
+            
+        Raises:
+            ValueError: Se ID inválido for fornecido
+            Exception: Se houver erro na busca
         """
-        # Buscar mensagem no repositório
-        message = await self._message_repository.find_by_id(message_id)
+        # Validação do ID
+        if message_id <= 0:
+            raise ValueError("ID da mensagem deve ser um número positivo")
+        
+        # Buscar no repositório
+        message = await self._message_repository.get_message_by_id(message_id)
         
         if not message:
             return None
         
         # Converter para DTO de resposta
-        return self._to_response_dto(message)
-    
-    def _to_response_dto(self, message: Message) -> MessageResponseDto:
-        """Converte entidade para DTO de resposta."""
-        return MessageResponseDto(
+        return MessageResponse(
             id=message.id,
-            responsible_id=message.responsible_id,
-            vehicle_id=message.vehicle_id,
             name=message.name,
             email=message.email,
             phone=message.phone,
             message=message.message,
+            vehicle_id=message.vehicle_id,
+            responsible_id=message.responsible_id,
             status=message.status,
             service_start_time=message.service_start_time,
-            service_duration_minutes=message.get_service_duration_minutes(),
             created_at=message.created_at,
-            updated_at=message.updated_at,
-            is_pending=message.is_pending(),
-            is_in_service=message.is_in_service(),
-            is_finished=message.is_finished(),
-            is_cancelled=message.is_cancelled(),
-            has_responsible=message.has_responsible(),
-            has_vehicle=message.has_vehicle()
+            updated_at=message.updated_at
         )
