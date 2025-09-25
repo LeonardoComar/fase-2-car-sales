@@ -134,9 +134,11 @@ def create_app() -> FastAPI:
     )
     
     # Configurar arquivos estáticos
-    upload_path = Path(settings.upload_dir)
-    if upload_path.exists():
-        app.mount("/static", StaticFiles(directory=str(upload_path)), name="static")
+    static_path = Path("/app/static")
+    if static_path.exists():
+        app.mount("/static", StaticFiles(directory=str(static_path)), name="static")
+    else:
+        logger.warning(f"Diretório estático não encontrado: {static_path}")
     
     # Configurar dependências (Injeção de Dependência)
     # Camada de Infraestrutura

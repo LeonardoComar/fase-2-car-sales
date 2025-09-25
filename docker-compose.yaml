@@ -1,6 +1,5 @@
 volumes:
   db_carsales_data:
-  carsales_static_data:
 networks:
   car-sales-net:
     external: false
@@ -37,6 +36,6 @@ services:
         condition: service_healthy
     volumes:
       - ./app:/app
-      - carsales_static_data:/app/static
+      - ./app/static:/app/static
     networks:
       - car-sales-net

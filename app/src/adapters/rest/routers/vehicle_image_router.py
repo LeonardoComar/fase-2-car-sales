@@ -1,289 +1,243 @@
 """
-Rotas para gerenciamento de imagens de veículos.
-Implements REST endpoints following Postman collection patterns.
+Router para VehicleImages - Interface Layer
+
+Define as rotas HTTP para operações relacionadas a imagens de veículos.
+
+Aplicando princípios SOLID:
+- SRP: Responsável apenas por definir rotas de imagens de veículos
+- OCP: Extensível para novas rotas sem modificar código existente
+- LSP: Pode ser substituído por outras implementações
+- ISP: Interface específica para rotas de imagens de veículos
+- DIP: Depende de abstrações (controllers) não de implementações
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, File
-from typing import List
-
+from typing import Optional
+from fastapi import APIRouter, Depends, Path, Body, UploadFile, File, Form, HTTPException
+from src.adapters.rest.controllers.vehicle_image_controller import VehicleImageController
 from src.adapters.rest.dependencies import get_vehicle_image_controller
+from src.application.dtos.vehicle_image_dto import (
+    VehicleImageCreateDTO,
+    VehicleImageUpdateDTO,
+    VehicleImageResponseDTO,
+    VehicleImageListResponseDTO,
+    VehicleImageUploadResponseDTO
+)
 
+# Criar o router diretamente
 vehicle_image_router = APIRouter()
 
-
-# ===== CAR IMAGE ROUTES =====
-
-@vehicle_image_router.post("/cars/{vehicle_id}/images", status_code=status.HTTP_201_CREATED)
-async def upload_car_images(
-    vehicle_id: int,
-    files: List[UploadFile] = File(...),
-    controller=Depends(get_vehicle_image_controller)
-):
-    """
-    Upload de imagens para um carro.
-    Seguindo padrão: POST /api/vehicles/cars/{car_id}/images
-    """
-    try:
-        uploaded_images = []
-        for file in files:
-            allowed_types = ["image/jpeg", "image/jpg", "image/png", "image/webp"]
-            if file.content_type not in allowed_types:
-                raise HTTPException(
-                    status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-                    detail=f"Tipo de arquivo não suportado: {file.content_type}"
-                )
-            
-            result = await controller.upload_image(
-                vehicle_id=vehicle_id,
-                image_file=file,
-                vehicle_type="car"
-            )
-            uploaded_images.append(result)
-        
-        return {
-            "message": f"{len(uploaded_images)} imagens carregadas com sucesso",
-            "images": uploaded_images
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
+@vehicle_image_router.post(
+    "/cars/{car_id}/images",
+    response_model=VehicleImageUploadResponseDTO,
+    status_code=201,
+    summary="Adicionar imagem ao carro",
+    description="Faz upload de uma imagem para um carro específico.",
+    responses={
+        201: {"description": "Imagem criada com sucesso"},
+        400: {"description": "Arquivo inválido ou ID do carro inválido"},
+        422: {"description": "Regra de negócio violada"},
+        500: {"description": "Erro interno do servidor"}
+    }
+)
+async def add_car_image(
+    car_id: int = Path(..., gt=0, description="ID do carro"),
+    file: Optional[UploadFile] = File(None, description="Arquivo de imagem"),
+    files: Optional[UploadFile] = File(None, description="Arquivo de imagem (alternativo)"),
+    position: Optional[int] = Form(None, description="Posição da imagem"),
+    is_primary: bool = Form(False, description="Se é a imagem principal"),
+    controller: VehicleImageController = Depends(get_vehicle_image_controller)
+) -> VehicleImageUploadResponseDTO:
+    """Faz upload de uma imagem para o carro especificado."""
+    
+    # Verificar qual campo foi usado
+    upload_file = file or files
+    
+    if not upload_file:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro interno do servidor ao carregar imagens"
+            status_code=400,
+            detail="É necessário enviar um arquivo de imagem no campo 'file' ou 'files'"
         )
+    
+    # Usar o serviço de imagens para processar o upload
+    from src.application.services.vehicle_image_service import VehicleImageService
+    image_service = VehicleImageService()
+    
+    # Processar e salvar a imagem
+    filename, file_path, thumbnail_path = await image_service.process_and_save_image(upload_file, car_id)
+    
+    # Criar DTO com os dados
+    from src.application.dtos.vehicle_image_dto import VehicleImageCreateDTO
+    image_data = VehicleImageCreateDTO(
+        vehicle_id=car_id,
+        filename=filename,
+        path=file_path,
+        thumbnail_path=thumbnail_path,
+        position=position,
+        is_primary=is_primary
+    )
+    
+    return await controller.create_vehicle_image(image_data)
 
-
-@vehicle_image_router.get("/cars/{vehicle_id}/images")
-async def get_car_images(
-    vehicle_id: int,
-    controller=Depends(get_vehicle_image_controller)
-):
-    """
-    Lista todas as imagens de um carro.
-    Seguindo padrão: GET /api/vehicles/cars/{car_id}/images
-    """
-    try:
-        images = await controller.get_vehicle_images(vehicle_id, "car")
-        return {
-            "vehicle_id": vehicle_id,
-            "vehicle_type": "car",
-            "images": images,
-            "total_count": len(images)
-        }
-    except Exception as e:
+@vehicle_image_router.post(
+    "/motorcycles/{motorcycle_id}/images",
+    response_model=VehicleImageUploadResponseDTO,
+    status_code=201,
+    summary="Adicionar imagem à motocicleta",
+    description="Faz upload de uma imagem para uma motocicleta específica.",
+    responses={
+        201: {"description": "Imagem criada com sucesso"},
+        400: {"description": "Arquivo inválido ou ID da motocicleta inválido"},
+        422: {"description": "Regra de negócio violada"},
+        500: {"description": "Erro interno do servidor"}
+    }
+)
+async def add_motorcycle_image(
+    motorcycle_id: int = Path(..., gt=0, description="ID da motocicleta"),
+    file: Optional[UploadFile] = File(None, description="Arquivo de imagem"),
+    files: Optional[UploadFile] = File(None, description="Arquivo de imagem (alternativo)"),
+    position: Optional[int] = Form(None, description="Posição da imagem"),
+    is_primary: bool = Form(False, description="Se é a imagem principal"),
+    controller: VehicleImageController = Depends(get_vehicle_image_controller)
+) -> VehicleImageUploadResponseDTO:
+    """Faz upload de uma imagem para a motocicleta especificada."""
+    
+    # Verificar qual campo foi usado
+    upload_file = file or files
+    
+    if not upload_file:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro interno do servidor ao buscar imagens"
+            status_code=400,
+            detail="É necessário enviar um arquivo de imagem no campo 'file' ou 'files'"
         )
+    
+    # Usar o serviço de imagens para processar o upload
+    from src.application.services.vehicle_image_service import VehicleImageService
+    image_service = VehicleImageService()
+    
+    # Processar e salvar a imagem - usando "motorcycles" como tipo de veículo
+    filename, file_path, thumbnail_path = await image_service.process_and_save_image(upload_file, motorcycle_id, vehicle_type="motorcycles")
+    
+    # Criar DTO com os dados
+    from src.application.dtos.vehicle_image_dto import VehicleImageCreateDTO
+    image_data = VehicleImageCreateDTO(
+        vehicle_id=motorcycle_id,
+        filename=filename,
+        path=file_path,
+        thumbnail_path=thumbnail_path,
+        position=position,
+        is_primary=is_primary
+    )
+    
+    return await controller.create_vehicle_image(image_data)
 
+@vehicle_image_router.get(
+    "/images/{image_id}",
+    response_model=VehicleImageResponseDTO,
+    summary="Buscar imagem por ID",
+    description="Busca uma imagem específica pelo seu ID.",
+    responses={
+        200: {"description": "Imagem encontrada"},
+        404: {"description": "Imagem não encontrada"},
+        400: {"description": "ID inválido"},
+        500: {"description": "Erro interno do servidor"}
+    }
+)
+async def get_image_by_id(
+    image_id: int = Path(..., gt=0, description="ID da imagem"),
+    controller: VehicleImageController = Depends(get_vehicle_image_controller)
+) -> VehicleImageResponseDTO:
+    """Busca uma imagem por ID."""
+    return await controller.get_vehicle_image_by_id(image_id)
 
-@vehicle_image_router.delete("/cars/{vehicle_id}/images/{image_id}")
-async def delete_car_image(
-    vehicle_id: int,
-    image_id: int,
-    controller=Depends(get_vehicle_image_controller)
-):
-    """
-    Remove uma imagem de carro.
-    Seguindo padrão: DELETE /api/vehicles/cars/{car_id}/images/{image_id}
-    """
-    try:
-        await controller.delete_image(image_id, vehicle_id)
-        return {
-            "message": "Imagem removida com sucesso",
-            "image_id": image_id
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro interno do servidor ao remover imagem"
-        )
+@vehicle_image_router.get(
+    "/cars/{car_id}/images",
+    response_model=VehicleImageListResponseDTO,
+    summary="Listar imagens do carro",
+    description="Lista todas as imagens de um carro específico, ordenadas por posição.",
+    responses={
+        200: {"description": "Lista de imagens retornada com sucesso"},
+        400: {"description": "ID do carro inválido"},
+        500: {"description": "Erro interno do servidor"}
+    }
+)
+async def list_car_images(
+    car_id: int = Path(..., gt=0, description="ID do carro"),
+    controller: VehicleImageController = Depends(get_vehicle_image_controller)
+) -> VehicleImageListResponseDTO:
+    """Lista todas as imagens de um carro específico."""
+    return await controller.get_vehicle_images(car_id)
 
+@vehicle_image_router.get(
+    "/cars/{car_id}/images/primary",
+    response_model=Optional[VehicleImageResponseDTO],
+    summary="Buscar imagem principal do carro",
+    description="Busca a imagem principal de um carro específico.",
+    responses={
+        200: {"description": "Imagem principal encontrada ou nenhuma imagem principal"},
+        400: {"description": "ID do carro inválido"},
+        500: {"description": "Erro interno do servidor"}
+    }
+)
+async def get_car_primary_image(
+    car_id: int = Path(..., gt=0, description="ID do carro"),
+    controller: VehicleImageController = Depends(get_vehicle_image_controller)
+) -> Optional[VehicleImageResponseDTO]:
+    """Busca a imagem principal de um carro específico."""
+    return await controller.get_primary_vehicle_image(car_id)
 
-@vehicle_image_router.patch("/cars/{vehicle_id}/images/primary")
-async def set_car_primary_image(
-    vehicle_id: int,
-    image_data: dict,
-    controller=Depends(get_vehicle_image_controller)
-):
-    """
-    Define uma imagem como principal para um carro.
-    Seguindo padrão: PATCH /api/vehicles/cars/{car_id}/images/primary
-    """
-    try:
-        image_id = image_data.get("image_id")
-        await controller.set_primary_image(vehicle_id, image_id)
-        return {
-            "message": "Imagem definida como principal com sucesso",
-            "vehicle_id": vehicle_id,
-            "primary_image_id": image_id
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro interno do servidor ao definir imagem principal"
-        )
+@vehicle_image_router.patch(
+    "/images/{image_id}",
+    response_model=VehicleImageResponseDTO,
+    summary="Atualizar imagem",
+    description="Atualiza propriedades de uma imagem existente (posição, status principal).",
+    responses={
+        200: {"description": "Imagem atualizada com sucesso"},
+        404: {"description": "Imagem não encontrada"},
+        400: {"description": "Dados inválidos"},
+        422: {"description": "Regra de negócio violada"},
+        500: {"description": "Erro interno do servidor"}
+    }
+)
+async def update_image(
+    image_id: int = Path(..., gt=0, description="ID da imagem"),
+    update_data: VehicleImageUpdateDTO = Body(..., description="Dados para atualização"),
+    controller: VehicleImageController = Depends(get_vehicle_image_controller)
+) -> VehicleImageResponseDTO:
+    """Atualiza uma imagem."""
+    return await controller.update_vehicle_image(image_id, update_data)
 
+@vehicle_image_router.patch(
+    "/images/{image_id}/set-primary",
+    response_model=VehicleImageResponseDTO,
+    summary="Definir como imagem principal",
+    description="Define uma imagem como principal, removendo o status principal de outras imagens do mesmo carro.",
+    responses={
+        200: {"description": "Imagem definida como principal com sucesso"},
+        404: {"description": "Imagem não encontrada"},
+        500: {"description": "Erro interno do servidor"}
+    }
+)
+async def set_image_as_primary(
+    image_id: int = Path(..., gt=0, description="ID da imagem"),
+    controller: VehicleImageController = Depends(get_vehicle_image_controller)
+) -> VehicleImageResponseDTO:
+    """Define uma imagem como principal."""
+    return await controller.set_primary_image(image_id)
 
-@vehicle_image_router.patch("/cars/{vehicle_id}/images/reorder")
-async def reorder_car_images(
-    vehicle_id: int,
-    reorder_data: dict,
-    controller=Depends(get_vehicle_image_controller)
-):
-    """
-    Reordena as imagens de um carro.
-    Seguindo padrão: PATCH /api/vehicles/cars/{car_id}/images/reorder
-    """
-    try:
-        image_positions = reorder_data.get("image_positions", [])
-        await controller.reorder_images(vehicle_id, image_positions)
-        return {
-            "message": "Imagens reordenadas com sucesso",
-            "vehicle_id": vehicle_id,
-            "reordered_count": len(image_positions)
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro interno do servidor ao reordenar imagens"
-        )
-
-
-# ===== MOTORCYCLE IMAGE ROUTES =====
-
-@vehicle_image_router.post("/motorcycles/{vehicle_id}/images", status_code=status.HTTP_201_CREATED)
-async def upload_motorcycle_images(
-    vehicle_id: int,
-    files: List[UploadFile] = File(...),
-    controller=Depends(get_vehicle_image_controller)
-):
-    """
-    Upload de imagens para uma motocicleta.
-    Seguindo padrão: POST /api/vehicles/motorcycles/{motorcycle_id}/images
-    """
-    try:
-        uploaded_images = []
-        for file in files:
-            allowed_types = ["image/jpeg", "image/jpg", "image/png", "image/webp"]
-            if file.content_type not in allowed_types:
-                raise HTTPException(
-                    status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-                    detail=f"Tipo de arquivo não suportado: {file.content_type}"
-                )
-            
-            result = await controller.upload_image(
-                vehicle_id=vehicle_id,
-                image_file=file,
-                vehicle_type="motorcycle"
-            )
-            uploaded_images.append(result)
-        
-        return {
-            "message": f"{len(uploaded_images)} imagens carregadas com sucesso",
-            "images": uploaded_images
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro interno do servidor ao carregar imagens"
-        )
-
-
-@vehicle_image_router.get("/motorcycles/{vehicle_id}/images")
-async def get_motorcycle_images(
-    vehicle_id: int,
-    controller=Depends(get_vehicle_image_controller)
-):
-    """
-    Lista todas as imagens de uma motocicleta.
-    Seguindo padrão: GET /api/vehicles/motorcycles/{motorcycle_id}/images
-    """
-    try:
-        images = await controller.get_vehicle_images(vehicle_id, "motorcycle")
-        return {
-            "vehicle_id": vehicle_id,
-            "vehicle_type": "motorcycle",
-            "images": images,
-            "total_count": len(images)
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro interno do servidor ao buscar imagens"
-        )
-
-
-@vehicle_image_router.delete("/motorcycles/{vehicle_id}/images/{image_id}")
-async def delete_motorcycle_image(
-    vehicle_id: int,
-    image_id: int,
-    controller=Depends(get_vehicle_image_controller)
-):
-    """
-    Remove uma imagem de motocicleta.
-    Seguindo padrão: DELETE /api/vehicles/motorcycles/{motorcycle_id}/images/{image_id}
-    """
-    try:
-        await controller.delete_image(image_id, vehicle_id)
-        return {
-            "message": "Imagem removida com sucesso",
-            "image_id": image_id
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro interno do servidor ao remover imagem"
-        )
-
-
-@vehicle_image_router.patch("/motorcycles/{vehicle_id}/images/primary")
-async def set_motorcycle_primary_image(
-    vehicle_id: int,
-    image_data: dict,
-    controller=Depends(get_vehicle_image_controller)
-):
-    """
-    Define uma imagem como principal para uma motocicleta.
-    Seguindo padrão: PATCH /api/vehicles/motorcycles/{motorcycle_id}/images/primary
-    """
-    try:
-        image_id = image_data.get("image_id")
-        await controller.set_primary_image(vehicle_id, image_id)
-        return {
-            "message": "Imagem definida como principal com sucesso",
-            "vehicle_id": vehicle_id,
-            "primary_image_id": image_id
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro interno do servidor ao definir imagem principal"
-        )
-
-
-@vehicle_image_router.patch("/motorcycles/{vehicle_id}/images/reorder")
-async def reorder_motorcycle_images(
-    vehicle_id: int,
-    reorder_data: dict,
-    controller=Depends(get_vehicle_image_controller)
-):
-    """
-    Reordena as imagens de uma motocicleta.
-    Seguindo padrão: PATCH /api/vehicles/motorcycles/{motorcycle_id}/images/reorder
-    """
-    try:
-        image_positions = reorder_data.get("image_positions", [])
-        await controller.reorder_images(vehicle_id, image_positions)
-        return {
-            "message": "Imagens reordenadas com sucesso",
-            "vehicle_id": vehicle_id,
-            "reordered_count": len(image_positions)
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Erro interno do servidor ao reordenar imagens"
-        )
+@vehicle_image_router.delete(
+    "/images/{image_id}",
+    summary="Remover imagem",
+    description="Remove uma imagem de carro. Se a imagem for principal, automaticamente define outra como principal.",
+    responses={
+        200: {"description": "Imagem removida com sucesso"},
+        404: {"description": "Imagem não encontrada"},
+        422: {"description": "Não é possível remover a única imagem do carro"},
+        500: {"description": "Erro interno do servidor"}
+    }
+)
+async def delete_image(
+    image_id: int = Path(..., gt=0, description="ID da imagem"),
+    controller: VehicleImageController = Depends(get_vehicle_image_controller)
+) -> dict:
+    """Remove uma imagem."""
+    return await controller.delete_vehicle_image(image_id)

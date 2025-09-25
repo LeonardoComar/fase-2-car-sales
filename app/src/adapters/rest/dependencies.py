@@ -36,6 +36,17 @@ from src.application.use_cases.vehicles import (
     SearchMotorcyclesUseCase,
 )
 
+# Use Cases - Vehicle Images
+from src.application.use_cases.vehicles.vehicle_image_use_cases import (
+    CreateVehicleImageUseCase,
+    GetVehicleImageUseCase,
+    GetVehicleImagesUseCase,
+    GetPrimaryVehicleImageUseCase,
+    UpdateVehicleImageUseCase,
+    DeleteVehicleImageUseCase,
+    SetPrimaryVehicleImageUseCase,
+)
+
 # Use Cases - Messages
 from src.application.use_cases.messages import (
     CreateMessageUseCase,
@@ -85,6 +96,7 @@ from src.adapters.rest.controllers.motorcycle_controller import MotorcycleContro
 from src.adapters.rest.controllers.user_controller import UserController
 from src.adapters.rest.controllers.blacklisted_token_controller import BlacklistedTokenController
 from src.adapters.rest.controllers.vehicle_image_controller import VehicleImageController
+from src.adapters.rest.presenters.vehicle_image_presenter import VehicleImagePresenter
 
 # Presenters
 # from src.adapters.rest.presenters.sale_presenter import SalePresenter  # TODO: Implementar quando necessário
@@ -115,6 +127,8 @@ from src.adapters.persistence.gateways import (
     SaleGateway,
     MessageGateway
 )
+
+from src.adapters.persistence.gateways.vehicle_image_gateway import VehicleImageGateway
 
 
 # Dependency Functions - Use Cases - Car (mock para desenvolvimento)
@@ -320,6 +334,48 @@ def get_update_message_status_use_case() -> UpdateMessageStatusUseCase:
     return UpdateMessageStatusUseCase(get_message_repository())
 
 
+# Dependency Functions - Use Cases - Vehicle Images
+
+def get_vehicle_image_repository() -> VehicleImageGateway:
+    """Factory para VehicleImageRepository (usando VehicleImageGateway)."""
+    return get_vehicle_image_gateway()
+
+
+def get_create_vehicle_image_use_case() -> CreateVehicleImageUseCase:
+    """Factory para CreateVehicleImageUseCase."""
+    return CreateVehicleImageUseCase(get_vehicle_image_repository())
+
+
+def get_get_vehicle_image_use_case() -> GetVehicleImageUseCase:
+    """Factory para GetVehicleImageUseCase."""
+    return GetVehicleImageUseCase(get_vehicle_image_repository())
+
+
+def get_get_vehicle_images_use_case() -> GetVehicleImagesUseCase:
+    """Factory para GetVehicleImagesUseCase."""
+    return GetVehicleImagesUseCase(get_vehicle_image_repository())
+
+
+def get_get_primary_vehicle_image_use_case() -> GetPrimaryVehicleImageUseCase:
+    """Factory para GetPrimaryVehicleImageUseCase."""
+    return GetPrimaryVehicleImageUseCase(get_vehicle_image_repository())
+
+
+def get_update_vehicle_image_use_case() -> UpdateVehicleImageUseCase:
+    """Factory para UpdateVehicleImageUseCase."""
+    return UpdateVehicleImageUseCase(get_vehicle_image_repository())
+
+
+def get_delete_vehicle_image_use_case() -> DeleteVehicleImageUseCase:
+    """Factory para DeleteVehicleImageUseCase."""
+    return DeleteVehicleImageUseCase(get_vehicle_image_repository())
+
+
+def get_set_primary_vehicle_image_use_case() -> SetPrimaryVehicleImageUseCase:
+    """Factory para SetPrimaryVehicleImageUseCase."""
+    return SetPrimaryVehicleImageUseCase(get_vehicle_image_repository())
+
+
 # Singleton mock repository for Employee (shared state during development)
 # Singletons para mock repositories
 _mock_car_repository = None
@@ -455,6 +511,15 @@ def get_message_gateway() -> MessageGateway:
     from src.infrastructure.database.connection import SessionLocal
     session = SessionLocal()
     return MessageGateway(session)
+
+
+def get_vehicle_image_gateway() -> VehicleImageGateway:
+    """Factory for VehicleImageGateway with database connection."""
+    # TODO: Implementar injeção de sessão correta
+    # Por enquanto, importando diretamente
+    from src.infrastructure.database.connection import SessionLocal
+    session = SessionLocal()
+    return VehicleImageGateway(session)
 #
 # def get_sale_gateway() -> SaleGateway:
 #     """Factory for SaleGateway with database session."""
@@ -652,6 +717,19 @@ def get_blacklisted_token_controller() -> BlacklistedTokenController:
 
 # ====== VEHICLE IMAGE DEPENDENCIES ======
 
+def get_vehicle_image_presenter() -> VehicleImagePresenter:
+    """Factory para VehicleImagePresenter."""
+    return VehicleImagePresenter(base_url="http://localhost:8180")
+
 def get_vehicle_image_controller() -> VehicleImageController:
     """Factory para VehicleImageController."""
-    return VehicleImageController()
+    return VehicleImageController(
+        create_vehicle_image_use_case=get_create_vehicle_image_use_case(),
+        get_vehicle_image_use_case=get_get_vehicle_image_use_case(),
+        get_vehicle_images_use_case=get_get_vehicle_images_use_case(),
+        get_primary_vehicle_image_use_case=get_get_primary_vehicle_image_use_case(),
+        update_vehicle_image_use_case=get_update_vehicle_image_use_case(),
+        delete_vehicle_image_use_case=get_delete_vehicle_image_use_case(),
+        set_primary_vehicle_image_use_case=get_set_primary_vehicle_image_use_case(),
+        presenter=get_vehicle_image_presenter()
+    )

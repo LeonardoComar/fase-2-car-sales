@@ -53,7 +53,7 @@ async def health_check():
             "motorcycles": "/api/motorcycles",
             "auth": "/api/auth",
             "users": "/api/users",
-            "vehicle_images": "/api/vehicles/{type}/{id}/images",
+            "vehicle_images": "/api/vehicles/cars/{car_id}/images",
             "admin": "/api/admin"
         },
         "message": "Sistema de vendas de carros - Padrão Postman implementado",
