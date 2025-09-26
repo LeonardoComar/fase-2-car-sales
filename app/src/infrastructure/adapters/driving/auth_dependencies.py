@@ -29,8 +29,8 @@ from src.infrastructure.driven.mock_blacklisted_token_repository import MockBlac
 # Configuração do esquema de autenticação
 security = HTTPBearer()
 
-# Chave secreta para JWT (em produção, deve vir de variável de ambiente)
-SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
+# Chave secreta para JWT (vem do arquivo .env)
+SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-here-change-in-production")
 
 # Instâncias dos repositórios (singleton pattern para mock)
 _user_repository = None

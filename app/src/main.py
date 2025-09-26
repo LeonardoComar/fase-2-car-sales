@@ -3,6 +3,7 @@ from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from pathlib import Path
 import logging
+import os
 
 # Infrastructure imports
 from src.infrastructure.config.settings import settings
@@ -155,7 +156,7 @@ def create_app() -> FastAPI:
     get_current_user_use_case = GetCurrentUserUseCase(
         user_repository=mock_user_repository,
         blacklisted_token_repository=mock_blacklisted_token_repository,
-        secret_key="your-secret-key-here-change-in-production"
+        secret_key=os.getenv("SECRET_KEY", "your-secret-key-here-change-in-production")
     )
     
     # Camada de Adaptadores

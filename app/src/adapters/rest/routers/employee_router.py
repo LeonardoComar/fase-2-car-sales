@@ -19,6 +19,11 @@ from fastapi.responses import JSONResponse
 from src.adapters.rest.controllers.employee_controller import EmployeeController
 from src.adapters.rest.dependencies import get_employee_controller
 from src.application.dtos.employee_dto import CreateEmployeeDto, UpdateEmployeeDto
+from src.adapters.rest.auth_dependencies import (
+    get_current_user,
+    get_current_admin_user
+)
+from src.domain.entities.user import User
 
 
 # Criar roteador para funcionários
@@ -29,12 +34,13 @@ employee_router = APIRouter()
     "",
     status_code=status.HTTP_201_CREATED,
     summary="Criar funcionário",
-    description="Cria um novo funcionário no sistema",
+    description="Cria um novo funcionário no sistema. Requer autenticação: Administrador",
     response_description="Funcionário criado com sucesso"
 )
 async def create_employee(
     employee_data: CreateEmployeeDto,
-    controller: EmployeeController = Depends(get_employee_controller)
+    controller: EmployeeController = Depends(get_employee_controller),
+    current_user: User = Depends(get_current_admin_user)
 ) -> JSONResponse:
     """
     Cria um novo funcionário no sistema.
@@ -46,7 +52,7 @@ async def create_employee(
     - **address**: Dados do endereço (opcional)
     
     O funcionário é criado com status "Ativo" por padrão.
-    Requer autenticação de administrador.
+    Requer autenticação: Administrador
     """
     return await controller.create_employee(employee_data)
 
@@ -55,7 +61,7 @@ async def create_employee(
     "",
     status_code=status.HTTP_200_OK,
     summary="Listar funcionários",
-    description="Lista funcionários com filtros e paginação",
+    description="Lista funcionários com filtros e paginação. Requer autenticação: Administrador",
     response_description="Lista de funcionários"
 )
 async def list_employees(
@@ -64,7 +70,8 @@ async def list_employees(
     name: Optional[str] = Query(None, description="Buscar por nome (busca parcial)"),
     cpf: Optional[str] = Query(None, description="Buscar por CPF exato"),
     status: Optional[str] = Query(None, pattern="^(Ativo|Inativo)$", description="Filtrar por status"),
-    controller: EmployeeController = Depends(get_employee_controller)
+    controller: EmployeeController = Depends(get_employee_controller),
+    current_user: User = Depends(get_current_admin_user)
 ) -> JSONResponse:
     """
     Lista funcionários com opções de busca e paginação.
@@ -81,7 +88,7 @@ async def list_employees(
     - **limit**: Número máximo de registros para retornar (padrão: 100, máximo: 500)
     
     **Nota**: Os parâmetros name e cpf não podem ser usados simultaneamente.
-    Requer autenticação de administrador.
+    Requer autenticação: Administrador
     """
     return await controller.list_employees(skip=skip, limit=limit, name=name, cpf=cpf, employee_status=status)
 
@@ -90,12 +97,13 @@ async def list_employees(
     "/{employee_id}",
     status_code=status.HTTP_200_OK,
     summary="Buscar funcionário",
-    description="Busca um funcionário específico pelo ID",
+    description="Busca um funcionário específico pelo ID. Requer autenticação: Administrador",
     response_description="Dados do funcionário"
 )
 async def get_employee(
     employee_id: int = Path(..., gt=0, description="ID do funcionário"),
-    controller: EmployeeController = Depends(get_employee_controller)
+    controller: EmployeeController = Depends(get_employee_controller),
+    current_user: User = Depends(get_current_admin_user)
 ) -> JSONResponse:
     """
     Busca um funcionário específico pelo ID.
@@ -103,7 +111,7 @@ async def get_employee(
     - **employee_id**: ID único do funcionário
     
     Retorna todos os dados do funcionário incluindo endereço se cadastrado.
-    Requer autenticação de administrador.
+    Requer autenticação: Administrador
     """
     return await controller.get_employee(employee_id)
 
@@ -112,13 +120,14 @@ async def get_employee(
     "/{employee_id}",
     status_code=status.HTTP_200_OK,
     summary="Atualizar funcionário",
-    description="Atualiza os dados de um funcionário existente",
+    description="Atualiza os dados de um funcionário existente. Requer autenticação: Administrador",
     response_description="Funcionário atualizado"
 )
 async def update_employee(
     employee_data: UpdateEmployeeDto,
     employee_id: int = Path(..., gt=0, description="ID do funcionário"),
-    controller: EmployeeController = Depends(get_employee_controller)
+    controller: EmployeeController = Depends(get_employee_controller),
+    current_user: User = Depends(get_current_admin_user)
 ) -> JSONResponse:
     """
     Atualiza os dados de um funcionário existente.
@@ -132,7 +141,7 @@ async def update_employee(
     - **address**: Dados do endereço (opcional)
     
     Apenas os campos fornecidos serão atualizados.
-    Requer autenticação de administrador.
+    Requer autenticação: Administrador
     """
     return await controller.update_employee(employee_id, employee_data)
 
@@ -141,12 +150,13 @@ async def update_employee(
     "/{employee_id}",
     status_code=status.HTTP_200_OK,
     summary="Excluir funcionário",
-    description="Remove um funcionário do sistema",
+    description="Remove um funcionário do sistema. Requer autenticação: Administrador",
     response_description="Funcionário excluído"
 )
 async def delete_employee(
     employee_id: int = Path(..., gt=0, description="ID do funcionário"),
-    controller: EmployeeController = Depends(get_employee_controller)
+    controller: EmployeeController = Depends(get_employee_controller),
+    current_user: User = Depends(get_current_admin_user)
 ) -> JSONResponse:
     """
     Remove um funcionário do sistema.
@@ -155,7 +165,7 @@ async def delete_employee(
     
     **Atenção**: Esta operação é irreversível. O funcionário será
     permanentemente removido do banco de dados.
-    Requer autenticação de administrador.
+    Requer autenticação: Administrador
     """
     return await controller.delete_employee(employee_id)
 
@@ -164,12 +174,13 @@ async def delete_employee(
     "/{employee_id}/activate",
     status_code=status.HTTP_200_OK,
     summary="Ativar funcionário",
-    description="Ativa um funcionário (define status como 'Ativo')",
+    description="Ativa um funcionário (define status como 'Ativo'). Requer autenticação: Administrador",
     response_description="Funcionário ativado"
 )
 async def activate_employee(
     employee_id: int = Path(..., gt=0, description="ID do funcionário"),
-    controller: EmployeeController = Depends(get_employee_controller)
+    controller: EmployeeController = Depends(get_employee_controller),
+    current_user: User = Depends(get_current_admin_user)
 ) -> JSONResponse:
     """
     Ativa um funcionário (define status como 'Ativo').
@@ -177,7 +188,7 @@ async def activate_employee(
     - **employee_id**: ID único do funcionário
     
     Endpoint de conveniência para ativar funcionários rapidamente.
-    Requer autenticação de administrador.
+    Requer autenticação: Administrador
     """
     return await controller.activate_employee(employee_id)
 
@@ -186,12 +197,13 @@ async def activate_employee(
     "/{employee_id}/deactivate", 
     status_code=status.HTTP_200_OK,
     summary="Desativar funcionário",
-    description="Desativa um funcionário (define status como 'Inativo')",
+    description="Desativa um funcionário (define status como 'Inativo'). Requer autenticação: Administrador",
     response_description="Funcionário desativado"
 )
 async def deactivate_employee(
     employee_id: int = Path(..., gt=0, description="ID do funcionário"),
-    controller: EmployeeController = Depends(get_employee_controller)
+    controller: EmployeeController = Depends(get_employee_controller),
+    current_user: User = Depends(get_current_admin_user)
 ) -> JSONResponse:
     """
     Desativa um funcionário (define status como 'Inativo').
@@ -199,6 +211,6 @@ async def deactivate_employee(
     - **employee_id**: ID único do funcionário
     
     Endpoint de conveniência para desativar funcionários rapidamente.
-    Requer autenticação de administrador.
+    Requer autenticação: Administrador
     """
     return await controller.deactivate_employee(employee_id)

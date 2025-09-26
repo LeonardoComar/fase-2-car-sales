@@ -16,6 +16,11 @@ from src.application.dtos.motorcycle_dto import (
 )
 from src.adapters.rest.controllers.motorcycle_controller import MotorcycleController
 from src.adapters.rest.dependencies import get_motorcycle_controller
+from src.adapters.rest.auth_dependencies import (
+    get_current_user,
+    get_current_admin_or_vendedor_user
+)
+from src.domain.entities.user import User
 
 # Setup logging
 logger = logging.getLogger(__name__)
@@ -36,14 +41,17 @@ motorcycle_router = APIRouter(
     "",
     status_code=status.HTTP_201_CREATED,
     summary="Criar motocicleta",
-    description="Cria uma nova motocicleta no sistema"
+    description="Cria uma nova motocicleta no sistema. Requer autenticação: Administrador ou Vendedor"
 )
 async def create_motorcycle(
     motorcycle_data: MotorcycleCreateDto,
-    controller: MotorcycleController = Depends(get_motorcycle_controller)
+    controller: MotorcycleController = Depends(get_motorcycle_controller),
+    current_user: User = Depends(get_current_admin_or_vendedor_user)
 ) -> JSONResponse:
     """
     Cria uma nova motocicleta.
+    
+    Requer autenticação: Administrador ou Vendedor
     
     - **model**: Modelo da motocicleta
     - **year**: Ano de fabricação
@@ -67,7 +75,7 @@ async def create_motorcycle(
     "/{motorcycle_id}",
     status_code=status.HTTP_200_OK,
     summary="Buscar motocicleta por ID",
-    description="Busca uma motocicleta específica pelo ID"
+    description="Busca uma motocicleta específica pelo ID. Acesso público."
 )
 async def get_motorcycle_by_id(
     motorcycle_id: int,
@@ -76,7 +84,9 @@ async def get_motorcycle_by_id(
     """
     Busca uma motocicleta pelo ID.
     
-    - **motorcycle_id**: ID único da motocicleta (UUID)
+    Acesso público - Não requer autenticação.
+    
+    - **motorcycle_id**: ID único da motocicleta (int)
     """
     return await controller.get_motorcycle_by_id(motorcycle_id)
 
@@ -142,14 +152,19 @@ async def list_motorcycles(
     "/{motorcycle_id}",
     status_code=status.HTTP_200_OK,
     summary="Atualizar motocicleta",
-    description="Atualiza os dados de uma motocicleta existente"
+    description="Atualiza os dados de uma motocicleta existente. Requer autenticação: Administrador ou Vendedor"
 )
 async def update_motorcycle(
     motorcycle_id: int,
     motorcycle_data: MotorcycleUpdateNestedDto,
-    controller: MotorcycleController = Depends(get_motorcycle_controller)
+    controller: MotorcycleController = Depends(get_motorcycle_controller),
+    current_user: User = Depends(get_current_admin_or_vendedor_user)
 ) -> JSONResponse:
-    """Atualiza os dados de uma motocicleta."""
+    """
+    Atualiza os dados de uma motocicleta.
+    
+    Requer autenticação: Administrador ou Vendedor
+    """
     return await controller.update_motorcycle(motorcycle_id, motorcycle_data)
 
 
@@ -157,13 +172,18 @@ async def update_motorcycle(
     "/{motorcycle_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Deletar motocicleta",
-    description="Remove uma motocicleta do sistema"
+    description="Remove uma motocicleta do sistema. Requer autenticação: Administrador ou Vendedor"
 )
 async def delete_motorcycle(
     motorcycle_id: int,
-    controller: MotorcycleController = Depends(get_motorcycle_controller)
+    controller: MotorcycleController = Depends(get_motorcycle_controller),
+    current_user: User = Depends(get_current_admin_or_vendedor_user)
 ) -> JSONResponse:
-    """Remove uma motocicleta do sistema."""
+    """
+    Remove uma motocicleta do sistema.
+    
+    Requer autenticação: Administrador ou Vendedor
+    """
     return await controller.delete_motorcycle(motorcycle_id)
 
 
@@ -171,13 +191,18 @@ async def delete_motorcycle(
     "/{motorcycle_id}/deactivate",
     status_code=status.HTTP_200_OK,
     summary="Desativar motocicleta",
-    description="Desativa uma motocicleta (muda status para Inativo)"
+    description="Desativa uma motocicleta (muda status para Inativo). Requer autenticação: Administrador ou Vendedor"
 )
 async def deactivate_motorcycle(
     motorcycle_id: int,
-    controller: MotorcycleController = Depends(get_motorcycle_controller)
+    controller: MotorcycleController = Depends(get_motorcycle_controller),
+    current_user: User = Depends(get_current_admin_or_vendedor_user)
 ) -> JSONResponse:
-    """Desativa uma motocicleta."""
+    """
+    Desativa uma motocicleta.
+    
+    Requer autenticação: Administrador ou Vendedor
+    """
     return await controller.deactivate_motorcycle(motorcycle_id)
 
 
@@ -185,11 +210,16 @@ async def deactivate_motorcycle(
     "/{motorcycle_id}/activate",
     status_code=status.HTTP_200_OK,
     summary="Ativar motocicleta",
-    description="Ativa uma motocicleta (muda status para Ativo)"
+    description="Ativa uma motocicleta (muda status para Ativo). Requer autenticação: Administrador ou Vendedor"
 )
 async def activate_motorcycle(
     motorcycle_id: int,
-    controller: MotorcycleController = Depends(get_motorcycle_controller)
+    controller: MotorcycleController = Depends(get_motorcycle_controller),
+    current_user: User = Depends(get_current_admin_or_vendedor_user)
 ) -> JSONResponse:
-    """Ativa uma motocicleta."""
+    """
+    Ativa uma motocicleta.
+    
+    Requer autenticação: Administrador ou Vendedor
+    """
     return await controller.activate_motorcycle(motorcycle_id)

@@ -2,6 +2,7 @@ from typing import Optional
 from datetime import datetime, timedelta
 import jwt
 import uuid
+import os
 from src.domain.entities.user import User
 from src.domain.ports.user_repository import UserRepository
 from src.application.dtos.user_dto import LoginDto, TokenDto
@@ -19,10 +20,10 @@ class AuthenticateUserUseCase:
     responsável apenas pela autenticação e geração de tokens.
     """
     
-    # Configurações JWT - em produção devem vir de variáveis de ambiente
-    SECRET_KEY = "your-secret-key-here-change-in-production"  # Mudar em produção
-    ALGORITHM = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES = 30
+    # Configurações JWT - vindas das variáveis de ambiente
+    SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-here-change-in-production")
+    ALGORITHM = os.getenv("ALGORITHM", "HS256")
+    ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
     
     def __init__(self, user_repository: UserRepository):
         self._user_repository = user_repository

@@ -2,6 +2,7 @@ from typing import Optional
 from src.domain.ports.car_repository import CarRepository
 from src.application.dtos.car_dto import CarResponseDto, MotorVehicleResponseDto
 from src.domain.entities.car import Car
+from src.domain.exceptions import NotFoundError
 import logging
 
 logger = logging.getLogger(__name__)
@@ -18,7 +19,7 @@ class GetCarUseCase:
     def __init__(self, car_repository: CarRepository):
         self._car_repository = car_repository
     
-    async def execute(self, car_id: int) -> Optional[CarResponseDto]:
+    async def execute(self, car_id: int) -> CarResponseDto:
         """
         Executa o caso de uso de busca de carro por ID.
         
@@ -26,9 +27,10 @@ class GetCarUseCase:
             car_id: ID do carro a ser buscado
             
         Returns:
-            Optional[CarResponseDto]: Dados do carro encontrado ou None
+            CarResponseDto: Dados do carro encontrado
             
         Raises:
+            NotFoundError: Se o carro não for encontrado
             ValueError: Se car_id for inválido
             Exception: Para outros erros
         """
@@ -39,12 +41,15 @@ class GetCarUseCase:
             car = await self._car_repository.find_by_id(car_id)
             
             if not car:
-                return None
+                raise NotFoundError("Carro", str(car_id))
             
             return self._car_to_response_dto(car)
             
         except ValueError as e:
             logger.error(f"Erro de validação ao buscar carro: {str(e)}")
+            raise e
+        except NotFoundError as e:
+            logger.error(f"Carro não encontrado: {str(e)}")
             raise e
         except Exception as e:
             logger.error(f"Erro ao buscar carro: {str(e)}")

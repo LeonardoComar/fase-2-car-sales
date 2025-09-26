@@ -16,6 +16,11 @@ from src.application.dtos.car_dto import (
 )
 from src.adapters.rest.controllers.car_controller import CarController
 from src.adapters.rest.dependencies import get_car_controller
+from src.adapters.rest.auth_dependencies import (
+    get_current_user,
+    get_current_admin_or_vendedor_user
+)
+from src.domain.entities.user import User
 
 
 # Criar router para carros
@@ -33,14 +38,17 @@ car_router = APIRouter(
     "",
     status_code=status.HTTP_201_CREATED,
     summary="Criar carro",
-    description="Cria um novo carro no sistema"
+    description="Cria um novo carro no sistema. Requer autenticação: Administrador ou Vendedor"
 )
 async def create_car(
     car_data: CarCreateDto,
-    controller: CarController = Depends(get_car_controller)
+    controller: CarController = Depends(get_car_controller),
+    current_user: User = Depends(get_current_admin_or_vendedor_user)
 ) -> JSONResponse:
     """
     Cria um novo carro.
+    
+    Requer autenticação: Administrador ou Vendedor
     
     - **model**: Modelo do carro
     - **year**: Ano de fabricação
@@ -58,7 +66,7 @@ async def create_car(
     "/{car_id}",
     status_code=status.HTTP_200_OK,
     summary="Buscar carro por ID",
-    description="Busca um carro específico pelo ID"
+    description="Busca um carro específico pelo ID. Acesso público."
 )
 async def get_car_by_id(
     car_id: int,
@@ -66,6 +74,8 @@ async def get_car_by_id(
 ) -> JSONResponse:
     """
     Busca um carro pelo ID.
+    
+    Acesso público - Não requer autenticação.
     
     - **car_id**: ID único do carro (int)
     """
@@ -119,14 +129,19 @@ async def list_cars(
     "/{car_id}",
     status_code=status.HTTP_200_OK,
     summary="Atualizar carro",
-    description="Atualiza os dados de um carro existente"
+    description="Atualiza os dados de um carro existente. Requer autenticação: Administrador ou Vendedor"
 )
 async def update_car(
     car_id: int,
     car_data: CarUpdateNestedDto,
-    controller: CarController = Depends(get_car_controller)
+    controller: CarController = Depends(get_car_controller),
+    current_user: User = Depends(get_current_admin_or_vendedor_user)
 ) -> JSONResponse:
-    """Atualiza os dados de um carro."""
+    """
+    Atualiza os dados de um carro.
+    
+    Requer autenticação: Administrador ou Vendedor
+    """
     return await controller.update_car(car_id, car_data)
 
 
@@ -134,13 +149,18 @@ async def update_car(
     "/{car_id}",
     status_code=status.HTTP_204_NO_CONTENT,
     summary="Deletar carro",
-    description="Remove um carro do sistema"
+    description="Remove um carro do sistema. Requer autenticação: Administrador ou Vendedor"
 )
 async def delete_car(
     car_id: int,
-    controller: CarController = Depends(get_car_controller)
+    controller: CarController = Depends(get_car_controller),
+    current_user: User = Depends(get_current_admin_or_vendedor_user)
 ) -> JSONResponse:
-    """Remove um carro do sistema."""
+    """
+    Remove um carro do sistema.
+    
+    Requer autenticação: Administrador ou Vendedor
+    """
     return await controller.delete_car(car_id)
 
 
@@ -148,13 +168,18 @@ async def delete_car(
     "/{car_id}/deactivate",
     status_code=status.HTTP_200_OK,
     summary="Desativar carro",
-    description="Desativa um carro (muda status para Inativo)"
+    description="Desativa um carro (muda status para Inativo). Requer autenticação: Administrador ou Vendedor"
 )
 async def deactivate_car(
     car_id: int,
-    controller: CarController = Depends(get_car_controller)
+    controller: CarController = Depends(get_car_controller),
+    current_user: User = Depends(get_current_admin_or_vendedor_user)
 ) -> JSONResponse:
-    """Desativa um carro."""
+    """
+    Desativa um carro.
+    
+    Requer autenticação: Administrador ou Vendedor
+    """
     return await controller.deactivate_car(car_id)
 
 
@@ -162,11 +187,16 @@ async def deactivate_car(
     "/{car_id}/activate",
     status_code=status.HTTP_200_OK,
     summary="Ativar carro",
-    description="Ativa um carro (muda status para Ativo)"
+    description="Ativa um carro (muda status para Ativo). Requer autenticação: Administrador ou Vendedor"
 )
 async def activate_car(
     car_id: int,
-    controller: CarController = Depends(get_car_controller)
+    controller: CarController = Depends(get_car_controller),
+    current_user: User = Depends(get_current_admin_or_vendedor_user)
 ) -> JSONResponse:
-    """Ativa um carro."""
+    """
+    Ativa um carro.
+    
+    Requer autenticação: Administrador ou Vendedor
+    """
     return await controller.activate_car(car_id)

@@ -19,6 +19,11 @@ from fastapi.responses import JSONResponse
 from src.adapters.rest.controllers.client_controller import ClientController
 from src.adapters.rest.dependencies import get_client_controller
 from src.application.dtos.client_dto import CreateClientDto, UpdateClientDto
+from src.adapters.rest.auth_dependencies import (
+    get_current_user,
+    get_current_admin_or_vendedor_user
+)
+from src.domain.entities.user import User
 
 
 # Criar roteador para clientes
@@ -29,12 +34,13 @@ client_router = APIRouter()
     "",
     status_code=status.HTTP_201_CREATED,
     summary="Criar cliente",
-    description="Cria um novo cliente no sistema",
+    description="Cria um novo cliente no sistema. Requer autenticação: Administrador ou Vendedor",
     response_description="Cliente criado com sucesso"
 )
 async def create_client(
     client_data: CreateClientDto,
-    controller: ClientController = Depends(get_client_controller)
+    controller: ClientController = Depends(get_client_controller),
+    current_user: User = Depends(get_current_admin_or_vendedor_user)
 ) -> JSONResponse:
     """
     Cria um novo cliente no sistema.
@@ -45,7 +51,7 @@ async def create_client(
     - **cpf**: CPF único do cliente
     - **address**: Dados do endereço (opcional)
     
-    Requer autenticação de administrador ou vendedor.
+    Requer autenticação: Administrador ou Vendedor
     """
     return await controller.create_client(client_data)
 
@@ -54,7 +60,7 @@ async def create_client(
     "",
     status_code=status.HTTP_200_OK,
     summary="Listar clientes",
-    description="Lista clientes com filtros e paginação",
+    description="Lista clientes com filtros e paginação. Requer autenticação: Administrador ou Vendedor",
     response_description="Lista de clientes"
 )
 async def list_clients(
@@ -62,7 +68,8 @@ async def list_clients(
     limit: int = Query(100, ge=1, le=500, description="Número máximo de registros para retornar"),
     name: Optional[str] = Query(None, description="Buscar por nome (busca parcial)"),
     cpf: Optional[str] = Query(None, description="Buscar por CPF exato"),
-    controller: ClientController = Depends(get_client_controller)
+    controller: ClientController = Depends(get_client_controller),
+    current_user: User = Depends(get_current_admin_or_vendedor_user)
 ) -> JSONResponse:
     """
     Lista clientes com opções de busca e paginação.
@@ -76,7 +83,7 @@ async def list_clients(
     - **limit**: Número máximo de registros para retornar (padrão: 100, máximo: 500)
     
     **Nota**: Os parâmetros name e cpf não podem ser usados simultaneamente.
-    Requer autenticação de administrador ou vendedor.
+    Requer autenticação: Administrador ou Vendedor
     """
     return await controller.list_clients(skip=skip, limit=limit, name=name, cpf=cpf)
 
@@ -85,12 +92,13 @@ async def list_clients(
     "/{client_id}",
     status_code=status.HTTP_200_OK,
     summary="Buscar cliente por ID",
-    description="Busca um cliente específico pelo ID",
+    description="Busca um cliente específico pelo ID. Requer autenticação: Administrador ou Vendedor",
     response_description="Dados do cliente"
 )
 async def get_client_by_id(
     client_id: int = Path(..., gt=0, description="ID do cliente"),
-    controller: ClientController = Depends(get_client_controller)
+    controller: ClientController = Depends(get_client_controller),
+    current_user: User = Depends(get_current_admin_or_vendedor_user)
 ) -> JSONResponse:
     """
     Busca um cliente pelo seu ID.
@@ -107,7 +115,7 @@ async def get_client_by_id(
     - **404**: Cliente não encontrado
     - **400**: ID inválido
     
-    Requer autenticação de administrador ou vendedor.
+    Requer autenticação: Administrador ou Vendedor
     """
     return await controller.get_client_by_id(client_id)
 
@@ -116,12 +124,13 @@ async def get_client_by_id(
     "/cpf/{cpf}",
     status_code=status.HTTP_200_OK,
     summary="Buscar cliente por CPF",
-    description="Busca um cliente específico pelo CPF",
+    description="Busca um cliente específico pelo CPF. Requer autenticação: Administrador ou Vendedor",
     response_description="Dados do cliente"
 )
 async def get_client_by_cpf(
     cpf: str = Path(..., min_length=11, max_length=14, description="CPF do cliente"),
-    controller: ClientController = Depends(get_client_controller)
+    controller: ClientController = Depends(get_client_controller),
+    current_user: User = Depends(get_current_admin_or_vendedor_user)
 ) -> JSONResponse:
     """
     Busca um cliente pelo seu CPF.
@@ -138,7 +147,7 @@ async def get_client_by_cpf(
     - **404**: Cliente não encontrado
     - **400**: CPF inválido
     
-    Requer autenticação de administrador ou vendedor.
+    Requer autenticação: Administrador ou Vendedor
     """
     return await controller.get_client_by_cpf(cpf)
 
@@ -147,13 +156,14 @@ async def get_client_by_cpf(
     "/{client_id}",
     status_code=status.HTTP_200_OK,
     summary="Atualizar cliente",
-    description="Atualiza os dados de um cliente existente",
+    description="Atualiza os dados de um cliente existente. Requer autenticação: Administrador ou Vendedor",
     response_description="Cliente atualizado com sucesso"
 )
 async def update_client(
     client_id: int = Path(..., gt=0, description="ID do cliente"),
     client_data: UpdateClientDto = ...,
-    controller: ClientController = Depends(get_client_controller)
+    controller: ClientController = Depends(get_client_controller),
+    current_user: User = Depends(get_current_admin_or_vendedor_user)
 ) -> JSONResponse:
     """
     Atualiza os dados de um cliente existente.
@@ -175,7 +185,7 @@ async def update_client(
     - **400**: Dados inválidos ou email/CPF já em uso
     
     **Nota**: Apenas os campos fornecidos serão atualizados.
-    Requer autenticação de administrador ou vendedor.
+    Requer autenticação: Administrador ou Vendedor
     """
     return await controller.update_client(client_id, client_data)
 
@@ -184,12 +194,13 @@ async def update_client(
     "/{client_id}",
     status_code=status.HTTP_200_OK,
     summary="Remover cliente",
-    description="Remove um cliente do sistema",
+    description="Remove um cliente do sistema. Requer autenticação: Administrador ou Vendedor",
     response_description="Cliente removido com sucesso"
 )
 async def delete_client(
     client_id: int = Path(..., gt=0, description="ID do cliente"),
-    controller: ClientController = Depends(get_client_controller)
+    controller: ClientController = Depends(get_client_controller),
+    current_user: User = Depends(get_current_admin_or_vendedor_user)
 ) -> JSONResponse:
     """
     Remove um cliente do sistema.
@@ -209,6 +220,6 @@ async def delete_client(
     **Atenção**: Esta operação é irreversível. O cliente e todos os seus dados
     serão permanentemente removidos do sistema.
     
-    Requer autenticação de administrador ou vendedor.
+    Requer autenticação: Administrador ou Vendedor
     """
     return await controller.delete_client(client_id)
