@@ -1,0 +1,735 @@
+"""
+Módulo de dependências para injeção de dependência.
+
+Aplicando o princípio Dependency Inversion Principle (DIP) - 
+módulos de alto nível não dependem de módulos de baixo nível.
+
+Versão simplificada enquanto a infraestrutura está sendo implementada.
+"""
+
+import logging
+
+# Setup logging
+logger = logging.getLogger(__name__)
+
+# Use Cases - User
+from src.application.use_cases.users import (
+    CreateUserUseCase,
+    GetUserUseCase,
+    AuthenticateUserUseCase,
+)
+from src.application.use_cases.get_current_user_use_case import GetCurrentUserUseCase
+
+# Use Cases - Vehicles
+from src.application.use_cases.vehicles import (
+    CreateCarUseCase,
+    GetCarUseCase,
+    UpdateCarUseCase,
+    UpdateCarStatusUseCase,
+    DeleteCarUseCase,
+    SearchCarsUseCase,
+    CreateMotorcycleUseCase,
+    GetMotorcycleUseCase,
+    UpdateMotorcycleUseCase,
+    UpdateMotorcycleStatusUseCase,
+    DeleteMotorcycleUseCase,
+    SearchMotorcyclesUseCase,
+)
+
+# Use Cases - Vehicle Images
+from src.application.use_cases.vehicles.vehicle_image_use_cases import (
+    CreateVehicleImageUseCase,
+    GetVehicleImageUseCase,
+    GetVehicleImagesUseCase,
+    GetPrimaryVehicleImageUseCase,
+    UpdateVehicleImageUseCase,
+    DeleteVehicleImageUseCase,
+    SetPrimaryVehicleImageUseCase,
+)
+
+# Use Cases - Messages
+from src.application.use_cases.messages import (
+    CreateMessageUseCase,
+    GetMessageByIdUseCase,
+    GetAllMessagesUseCase,
+    StartServiceUseCase,
+    UpdateMessageStatusUseCase,
+)
+
+# Use Cases - Sales
+from src.application.use_cases.sales import (
+    CreateSaleUseCase,
+    GetSaleByIdUseCase,
+    UpdateSaleUseCase,
+    DeleteSaleUseCase,
+    ListSalesUseCase,
+    SaleStatisticsUseCase,
+)
+from src.application.use_cases.sales.confirm_sale_use_case import ConfirmSaleUseCase
+
+# Use Cases - Employees
+from src.application.use_cases.employees.create_employee_use_case import CreateEmployeeUseCase
+from src.application.use_cases.employees.get_employee_use_case import GetEmployeeUseCase
+from src.application.use_cases.employees.list_employees_use_case import ListEmployeesUseCase
+from src.application.use_cases.employees.update_employee_use_case import UpdateEmployeeUseCase
+from src.application.use_cases.employees.delete_employee_use_case import DeleteEmployeeUseCase
+from src.application.use_cases.employees.update_employee_status_use_case import UpdateEmployeeStatusUseCase
+
+# Use Cases - Clients
+from src.application.use_cases.clients import (
+    CreateClientUseCase,
+    GetClientByIdUseCase,
+    GetClientByCpfUseCase,
+    UpdateClientUseCase,
+    DeleteClientUseCase,
+    ListClientsUseCase,
+    UpdateClientStatusUseCase,
+)
+
+# Controllers
+from src.adapters.rest.controllers.sale_controller import SaleController
+from src.adapters.rest.controllers.employee_controller import EmployeeController
+from src.adapters.rest.controllers.message_controller import MessageController
+from src.adapters.rest.controllers.client_controller import ClientController
+from src.adapters.rest.controllers.car_controller import CarController
+from src.adapters.rest.controllers.motorcycle_controller import MotorcycleController
+from src.adapters.rest.controllers.user_controller import UserController
+from src.adapters.rest.controllers.blacklisted_token_controller import BlacklistedTokenController
+from src.adapters.rest.controllers.vehicle_image_controller import VehicleImageController
+from src.adapters.rest.presenters.vehicle_image_presenter import VehicleImagePresenter
+
+# Presenters
+# from src.adapters.rest.presenters.sale_presenter import SalePresenter  # TODO: Implementar quando necessário
+# from src.adapters.rest.presenters.employee_presenter import EmployeePresenter  # TODO: Implementar quando necessário
+# from src.adapters.rest.presenters.message_presenter import MessagePresenter  # TODO: Implementar quando necessário
+from src.adapters.rest.presenters.client_presenter import ClientPresenter
+from src.adapters.rest.presenters.car_presenter import CarPresenter
+from src.adapters.rest.presenters.motorcycle_presenter import MotorcyclePresenter
+from src.adapters.rest.presenters.user_presenter import UserPresenter
+
+# Mock Repositories
+from src.infrastructure.driven.mock_car_repository import MockCarRepository
+from src.infrastructure.driven.mock_motorcycle_repository import MockMotorcycleRepository
+from src.infrastructure.driven.mock_client_repository import MockClientRepository
+from src.infrastructure.driven.mock_employee_repository import MockEmployeeRepository
+from src.infrastructure.driven.mock_sale_repository import MockSaleRepository
+# from src.infrastructure.driven.mock_message_repository import MockMessageRepository  # TODO: Implementar quando necessário
+from src.infrastructure.driven.mock_user_repository import MockUserRepository
+from src.infrastructure.driven.mock_blacklisted_token_repository import MockBlacklistedTokenRepository
+
+# Real Gateways (for when database is configured)
+from src.adapters.persistence.gateways import (
+    UserGateway,
+    CarGateway,
+    ClientGateway,
+    MotorcycleGateway,
+    EmployeeGateway,  # Habilitando EmployeeGateway
+    SaleGateway,
+    MessageGateway
+)
+
+from src.adapters.persistence.gateways.vehicle_image_gateway import VehicleImageGateway
+
+
+# Dependency Functions - Use Cases - Car (mock para desenvolvimento)
+
+def get_create_car_use_case() -> CreateCarUseCase:
+    """Factory para CreateCarUseCase - versão com banco de dados."""
+    return CreateCarUseCase(get_car_gateway())
+
+
+def get_get_car_use_case() -> GetCarUseCase:
+    """Factory para GetCarUseCase - versão com banco de dados."""
+    return GetCarUseCase(get_car_gateway())
+
+
+def get_update_car_use_case() -> UpdateCarUseCase:
+    """Factory para UpdateCarUseCase - versão com banco de dados."""
+    return UpdateCarUseCase(get_car_gateway())
+
+
+def get_update_car_status_use_case() -> UpdateCarStatusUseCase:
+    """Factory para UpdateCarStatusUseCase - versão com banco de dados."""
+    return UpdateCarStatusUseCase(get_car_gateway())
+
+
+def get_delete_car_use_case() -> DeleteCarUseCase:
+    """Factory para DeleteCarUseCase - versão com banco de dados."""
+    return DeleteCarUseCase(get_car_gateway())
+
+
+def get_search_cars_use_case() -> SearchCarsUseCase:
+    """Factory para SearchCarsUseCase - versão com banco de dados."""
+    return SearchCarsUseCase(get_car_gateway())
+
+
+# Dependency Functions - Use Cases - Motorcycle (usando gateway real)
+
+def get_create_motorcycle_use_case() -> CreateMotorcycleUseCase:
+    """Factory para CreateMotorcycleUseCase com gateway real."""
+    return CreateMotorcycleUseCase(get_motorcycle_gateway())
+
+
+def get_get_motorcycle_use_case() -> GetMotorcycleUseCase:
+    """Factory para GetMotorcycleUseCase com gateway real."""
+    return GetMotorcycleUseCase(get_motorcycle_gateway())
+
+
+def get_update_motorcycle_use_case() -> UpdateMotorcycleUseCase:
+    """Factory para UpdateMotorcycleUseCase com gateway real."""
+    return UpdateMotorcycleUseCase(get_motorcycle_gateway())
+
+
+def get_update_motorcycle_status_use_case() -> UpdateMotorcycleStatusUseCase:
+    """Factory para UpdateMotorcycleStatusUseCase com gateway real."""
+    return UpdateMotorcycleStatusUseCase(get_motorcycle_gateway())
+
+
+def get_delete_motorcycle_use_case() -> DeleteMotorcycleUseCase:
+    """Factory para DeleteMotorcycleUseCase com gateway real."""
+    return DeleteMotorcycleUseCase(get_motorcycle_gateway())
+
+
+def get_search_motorcycles_use_case() -> SearchMotorcyclesUseCase:
+    """Factory para SearchMotorcyclesUseCase com gateway real."""
+    try:
+        logger.info("🔍 [DEPENDENCIES] Criando SearchMotorcyclesUseCase...")
+        gateway = get_motorcycle_gateway()
+        logger.info("🔍 [DEPENDENCIES] Gateway obtido com sucesso")
+        use_case = SearchMotorcyclesUseCase(gateway)
+        logger.info("🔍 [DEPENDENCIES] SearchMotorcyclesUseCase criado com sucesso")
+        return use_case
+    except Exception as e:
+        logger.error(f"❌ [DEPENDENCIES] Erro ao criar SearchMotorcyclesUseCase: {str(e)}", exc_info=True)
+        raise e
+
+
+# Dependency Functions - Use Cases - User (mock para desenvolvimento)
+
+def get_create_user_use_case() -> CreateUserUseCase:
+    """Factory para CreateUserUseCase - versão mock."""
+    return CreateUserUseCase(get_mock_user_repository())
+
+
+def get_get_user_use_case() -> GetUserUseCase:
+    """Factory para GetUserUseCase - versão mock."""
+    return GetUserUseCase(get_mock_user_repository())
+
+
+def get_authenticate_user_use_case() -> AuthenticateUserUseCase:
+    """Factory para AuthenticateUserUseCase - versão mock."""
+    return AuthenticateUserUseCase(get_mock_user_repository())
+
+
+def get_get_current_user_use_case() -> GetCurrentUserUseCase:
+    """Factory para GetCurrentUserUseCase - versão mock."""
+    return GetCurrentUserUseCase(
+        user_repository=get_mock_user_repository(),
+        blacklisted_token_repository=get_mock_blacklisted_token_repository(),
+        secret_key="your-secret-key-here-change-in-production"  # Em produção, deve vir de variável de ambiente
+    )
+
+
+# Dependency Functions - Use Cases - Client (com banco de dados)
+
+def get_create_client_use_case() -> CreateClientUseCase:
+    """Factory para CreateClientUseCase - versão com banco de dados."""
+    return CreateClientUseCase(get_client_gateway())
+
+
+def get_get_client_by_id_use_case() -> GetClientByIdUseCase:
+    """Factory para GetClientByIdUseCase - versão com banco de dados."""
+    return GetClientByIdUseCase(get_client_gateway())
+
+
+def get_get_client_by_cpf_use_case() -> GetClientByCpfUseCase:
+    """Factory para GetClientByCpfUseCase - versão com banco de dados."""
+    return GetClientByCpfUseCase(get_client_gateway())
+
+
+def get_update_client_use_case() -> UpdateClientUseCase:
+    """Factory para UpdateClientUseCase - versão com banco de dados."""
+    return UpdateClientUseCase(get_client_gateway())
+
+
+def get_delete_client_use_case() -> DeleteClientUseCase:
+    """Factory para DeleteClientUseCase - versão com banco de dados."""
+    return DeleteClientUseCase(get_client_gateway())
+
+
+def get_list_clients_use_case() -> ListClientsUseCase:
+    """Factory para ListClientsUseCase - versão com banco de dados."""
+    return ListClientsUseCase(get_client_gateway())
+
+
+def get_update_client_status_use_case() -> UpdateClientStatusUseCase:
+    """Factory para UpdateClientStatusUseCase - versão com banco de dados."""
+    return UpdateClientStatusUseCase(get_client_gateway())
+
+
+def get_create_sale_use_case() -> CreateSaleUseCase:
+    """Factory para CreateSaleUseCase - versão com gateway real."""
+    return CreateSaleUseCase(get_sale_gateway())
+
+
+def get_get_sale_by_id_use_case() -> GetSaleByIdUseCase:
+    """Factory para GetSaleByIdUseCase - versão com gateway real."""
+    return GetSaleByIdUseCase(get_sale_gateway())
+
+
+def get_update_sale_use_case() -> UpdateSaleUseCase:
+    """Factory para UpdateSaleUseCase - versão com gateway real."""
+    return UpdateSaleUseCase(get_sale_gateway())
+
+
+def get_delete_sale_use_case() -> DeleteSaleUseCase:
+    """Factory para DeleteSaleUseCase - versão com gateway real."""
+    return DeleteSaleUseCase(get_sale_gateway())
+
+
+def get_list_sales_use_case() -> ListSalesUseCase:
+    """Factory para ListSalesUseCase - versão com gateway real."""
+    return ListSalesUseCase(get_sale_gateway())
+
+
+def get_confirm_sale_use_case() -> ConfirmSaleUseCase:
+    """Factory para ConfirmSaleUseCase - versão com gateway real."""
+    return ConfirmSaleUseCase(get_sale_gateway())
+
+
+def get_sale_statistics_use_case() -> SaleStatisticsUseCase:
+    """Factory para SaleStatisticsUseCase - versão com gateway real."""
+    return SaleStatisticsUseCase(get_sale_gateway())
+
+
+# Dependency Functions - Use Cases - Message (com repositório real)
+
+def get_message_repository() -> MessageGateway:
+    """Factory para MessageRepository (usando MessageGateway)."""
+    return get_message_gateway()
+
+
+def get_create_message_use_case() -> CreateMessageUseCase:
+    """Factory para CreateMessageUseCase."""
+    return CreateMessageUseCase(get_message_repository())
+
+
+def get_get_message_by_id_use_case() -> GetMessageByIdUseCase:
+    """Factory para GetMessageByIdUseCase."""
+    return GetMessageByIdUseCase(get_message_repository())
+
+
+def get_get_all_messages_use_case() -> GetAllMessagesUseCase:
+    """Factory para GetAllMessagesUseCase."""
+    return GetAllMessagesUseCase(get_message_repository())
+
+
+def get_start_service_use_case() -> StartServiceUseCase:
+    """Factory para StartServiceUseCase."""
+    return StartServiceUseCase(get_message_repository())
+
+
+def get_update_message_status_use_case() -> UpdateMessageStatusUseCase:
+    """Factory para UpdateMessageStatusUseCase."""
+    return UpdateMessageStatusUseCase(get_message_repository())
+
+
+# Dependency Functions - Use Cases - Vehicle Images
+
+def get_vehicle_image_repository() -> VehicleImageGateway:
+    """Factory para VehicleImageRepository (usando VehicleImageGateway)."""
+    return get_vehicle_image_gateway()
+
+
+def get_create_vehicle_image_use_case() -> CreateVehicleImageUseCase:
+    """Factory para CreateVehicleImageUseCase."""
+    return CreateVehicleImageUseCase(get_vehicle_image_repository())
+
+
+def get_get_vehicle_image_use_case() -> GetVehicleImageUseCase:
+    """Factory para GetVehicleImageUseCase."""
+    return GetVehicleImageUseCase(get_vehicle_image_repository())
+
+
+def get_get_vehicle_images_use_case() -> GetVehicleImagesUseCase:
+    """Factory para GetVehicleImagesUseCase."""
+    return GetVehicleImagesUseCase(get_vehicle_image_repository())
+
+
+def get_get_primary_vehicle_image_use_case() -> GetPrimaryVehicleImageUseCase:
+    """Factory para GetPrimaryVehicleImageUseCase."""
+    return GetPrimaryVehicleImageUseCase(get_vehicle_image_repository())
+
+
+def get_update_vehicle_image_use_case() -> UpdateVehicleImageUseCase:
+    """Factory para UpdateVehicleImageUseCase."""
+    return UpdateVehicleImageUseCase(get_vehicle_image_repository())
+
+
+def get_delete_vehicle_image_use_case() -> DeleteVehicleImageUseCase:
+    """Factory para DeleteVehicleImageUseCase."""
+    return DeleteVehicleImageUseCase(get_vehicle_image_repository())
+
+
+def get_set_primary_vehicle_image_use_case() -> SetPrimaryVehicleImageUseCase:
+    """Factory para SetPrimaryVehicleImageUseCase."""
+    return SetPrimaryVehicleImageUseCase(get_vehicle_image_repository())
+
+
+# Singleton mock repository for Employee (shared state during development)
+# Singletons para mock repositories
+_mock_car_repository = None
+_mock_motorcycle_repository = None
+_mock_client_repository = None
+_mock_user_repository = None
+_mock_employee_repository = None
+_mock_sale_repository = None
+# _mock_message_repository = None  # TODO: Implementar quando necessário
+_mock_blacklisted_token_repository = None
+
+
+def get_mock_car_repository() -> MockCarRepository:
+    """Factory para mock Car repository - versão singleton."""
+    global _mock_car_repository
+    if _mock_car_repository is None:
+        _mock_car_repository = MockCarRepository()
+    return _mock_car_repository
+
+
+def get_mock_motorcycle_repository() -> MockMotorcycleRepository:
+    """Factory para mock Motorcycle repository - versão singleton."""
+    global _mock_motorcycle_repository
+    if _mock_motorcycle_repository is None:
+        _mock_motorcycle_repository = MockMotorcycleRepository()
+    return _mock_motorcycle_repository
+
+
+def get_mock_client_repository() -> MockClientRepository:
+    """Factory para mock Client repository - versão singleton."""
+    global _mock_client_repository
+    if _mock_client_repository is None:
+        _mock_client_repository = MockClientRepository()
+    return _mock_client_repository
+
+
+def get_mock_user_repository() -> MockUserRepository:
+    """Factory para mock User repository - versão singleton."""
+    global _mock_user_repository
+    if _mock_user_repository is None:
+        _mock_user_repository = MockUserRepository()
+    return _mock_user_repository
+
+
+def get_mock_employee_repository() -> MockEmployeeRepository:
+    """Factory para mock Employee repository - versão singleton."""
+    global _mock_employee_repository
+    if _mock_employee_repository is None:
+        _mock_employee_repository = MockEmployeeRepository()
+    return _mock_employee_repository
+
+
+def get_mock_sale_repository() -> MockSaleRepository:
+    """Factory para mock Sale repository - versão singleton."""
+    global _mock_sale_repository
+    if _mock_sale_repository is None:
+        _mock_sale_repository = MockSaleRepository()
+    return _mock_sale_repository
+
+
+# TODO: Implementar quando necessário
+# def get_mock_message_repository() -> MockMessageRepository:
+#     """Factory para mock Message repository - versão singleton."""
+#     global _mock_message_repository
+#     if _mock_message_repository is None:
+#         _mock_message_repository = MockMessageRepository()
+#     return _mock_message_repository
+
+
+def get_mock_blacklisted_token_repository() -> MockBlacklistedTokenRepository:
+    """Factory para mock BlacklistedToken repository - versão singleton."""
+    global _mock_blacklisted_token_repository
+    if _mock_blacklisted_token_repository is None:
+        _mock_blacklisted_token_repository = MockBlacklistedTokenRepository()
+    return _mock_blacklisted_token_repository
+
+
+# =============================================================================
+# REAL DATABASE GATEWAYS - Uncomment and configure when database is ready
+# =============================================================================
+#
+# To use real database persistence instead of mock repositories:
+# 1. Configure your database connection in the infrastructure layer
+# 2. Uncomment the gateway functions below
+# 3. Replace the mock repository calls in the use case factories above
+#
+# Example: Instead of get_mock_car_repository(), use get_car_gateway()
+
+def get_car_gateway() -> CarGateway:
+    """Factory for CarGateway with database connection."""
+    return CarGateway()
+
+def get_client_gateway() -> ClientGateway:
+    """Factory for ClientGateway with database connection."""
+    return ClientGateway()
+
+def get_motorcycle_gateway() -> MotorcycleGateway:
+    """Factory for MotorcycleGateway with database connection."""
+    try:
+        logger.info("🔍 [DEPENDENCIES] Criando MotorcycleGateway...")
+        gateway = MotorcycleGateway()
+        logger.info("🔍 [DEPENDENCIES] MotorcycleGateway criado com sucesso")
+        return gateway
+    except Exception as e:
+        logger.error(f"❌ [DEPENDENCIES] Erro ao criar MotorcycleGateway: {str(e)}", exc_info=True)
+        raise e
+
+# TODO: Implementar quando necessário
+def get_employee_gateway():
+    """Factory for EmployeeGateway with database connection."""
+    # TODO: Implementar injeção de sessão correta
+    # Por enquanto, importando diretamente
+    from src.infrastructure.database.connection import SessionLocal
+    session = SessionLocal()
+    return EmployeeGateway(session)
+
+def get_user_gateway() -> UserGateway:
+    """Factory for UserGateway with database connection."""
+    return UserGateway()
+
+def get_sale_gateway() -> SaleGateway:
+    """Factory for SaleGateway with database connection."""
+    # TODO: Implementar injeção de sessão correta
+    # Por enquanto, importando diretamente
+    from src.infrastructure.database.connection import SessionLocal
+    session = SessionLocal()
+    return SaleGateway(session)
+
+def get_message_gateway() -> MessageGateway:
+    """Factory for MessageGateway with database connection."""
+    # TODO: Implementar injeção de sessão correta
+    # Por enquanto, importando diretamente
+    from src.infrastructure.database.connection import SessionLocal
+    session = SessionLocal()
+    return MessageGateway(session)
+
+
+def get_vehicle_image_gateway() -> VehicleImageGateway:
+    """Factory for VehicleImageGateway with database connection."""
+    # TODO: Implementar injeção de sessão correta
+    # Por enquanto, importando diretamente
+    from src.infrastructure.database.connection import SessionLocal
+    session = SessionLocal()
+    return VehicleImageGateway(session)
+#
+# def get_sale_gateway() -> SaleGateway:
+#     """Factory for SaleGateway with database session."""
+#     return SaleGateway(get_database_session())
+#
+# def get_message_gateway() -> MessageGateway:
+#     """Factory for MessageGateway with database session."""
+#     return MessageGateway(get_database_session())
+#
+# def get_user_gateway() -> UserGateway:
+#     """Factory for UserGateway with database session."""
+#     return UserGateway(get_database_session())
+#
+# =============================================================================
+
+
+# Dependency Functions - Use Cases - Employee (com mock repository)
+
+def get_create_employee_use_case() -> CreateEmployeeUseCase:
+    """Factory para CreateEmployeeUseCase - versão com gateway real."""
+    return CreateEmployeeUseCase(get_employee_gateway())
+
+
+def get_get_employee_use_case() -> GetEmployeeUseCase:
+    """Factory para GetEmployeeUseCase - versão com gateway real."""
+    return GetEmployeeUseCase(get_employee_gateway())
+
+
+def get_update_employee_use_case() -> UpdateEmployeeUseCase:
+    """Factory para UpdateEmployeeUseCase - versão com gateway real."""
+    return UpdateEmployeeUseCase(get_employee_gateway())
+
+
+def get_delete_employee_use_case() -> DeleteEmployeeUseCase:
+    """Factory para DeleteEmployeeUseCase - versão com gateway real."""
+    return DeleteEmployeeUseCase(get_employee_gateway())
+
+
+def get_list_employees_use_case() -> ListEmployeesUseCase:
+    """Factory para ListEmployeesUseCase - versão com gateway real."""
+    return ListEmployeesUseCase(get_employee_gateway())
+
+
+def get_update_employee_status_use_case() -> UpdateEmployeeStatusUseCase:
+    """Factory para UpdateEmployeeStatusUseCase - versão com gateway real."""
+    return UpdateEmployeeStatusUseCase(get_employee_gateway())
+
+
+# Dependency Functions - Presenters
+
+# def get_sale_presenter() -> SalePresenter:
+#     """Factory para SalePresenter."""
+#     return SalePresenter()
+
+
+# TODO: Implementar quando necessário
+# def get_employee_presenter() -> EmployeePresenter:
+#     """Factory para EmployeePresenter."""
+#     return EmployeePresenter()
+
+
+# def get_message_presenter() -> MessagePresenter:
+#     """Factory para MessagePresenter."""
+#     return MessagePresenter()
+
+
+def get_client_presenter() -> ClientPresenter:
+    """Factory para ClientPresenter."""
+    return ClientPresenter()
+
+
+def get_car_presenter() -> CarPresenter:
+    """Factory para CarPresenter."""
+    return CarPresenter()
+
+
+def get_motorcycle_presenter() -> MotorcyclePresenter:
+    """Factory para MotorcyclePresenter."""
+    return MotorcyclePresenter()
+
+
+def get_user_presenter() -> UserPresenter:
+    """Factory para UserPresenter."""
+    return UserPresenter()
+
+
+# Dependency Functions - Controllers
+
+def get_sale_controller() -> SaleController:
+    """Factory para SaleController."""
+    return SaleController(
+        create_sale_use_case=get_create_sale_use_case(),
+        get_sale_by_id_use_case=get_get_sale_by_id_use_case(),
+        update_sale_use_case=get_update_sale_use_case(),
+        delete_sale_use_case=get_delete_sale_use_case(),
+        list_sales_use_case=get_list_sales_use_case(),
+        sale_statistics_use_case=get_sale_statistics_use_case(),
+        confirm_sale_use_case=get_confirm_sale_use_case()
+    )
+
+
+def get_employee_controller() -> EmployeeController:
+    """Factory para EmployeeController."""
+    return EmployeeController(
+        create_employee_use_case=get_create_employee_use_case(),
+        get_employee_use_case=get_get_employee_use_case(),
+        list_employees_use_case=get_list_employees_use_case(),
+        update_employee_use_case=get_update_employee_use_case(),
+        delete_employee_use_case=get_delete_employee_use_case(),
+        update_employee_status_use_case=get_update_employee_status_use_case()
+    )
+
+
+def get_message_controller() -> MessageController:
+    """Factory para MessageController."""
+    return MessageController(
+        create_message_use_case=get_create_message_use_case(),
+        get_message_by_id_use_case=get_get_message_by_id_use_case(),
+        get_all_messages_use_case=get_get_all_messages_use_case(),
+        start_service_use_case=get_start_service_use_case(),
+        update_message_status_use_case=get_update_message_status_use_case()
+    )
+
+
+def get_client_controller() -> ClientController:
+    """Factory para ClientController."""
+    return ClientController(
+        create_use_case=get_create_client_use_case(),
+        get_by_id_use_case=get_get_client_by_id_use_case(),
+        get_by_cpf_use_case=get_get_client_by_cpf_use_case(),
+        update_use_case=get_update_client_use_case(),
+        delete_use_case=get_delete_client_use_case(),
+        list_use_case=get_list_clients_use_case(),
+        update_status_use_case=get_update_client_status_use_case(),
+        client_presenter=get_client_presenter()
+    )
+
+
+# ====== CAR DEPENDENCIES ======
+
+def get_car_controller() -> CarController:
+    """Factory para CarController."""
+    return CarController(
+        create_use_case=get_create_car_use_case(),
+        get_use_case=get_get_car_use_case(),
+        update_use_case=get_update_car_use_case(),
+        update_status_use_case=get_update_car_status_use_case(),
+        delete_use_case=get_delete_car_use_case(),
+        search_use_case=get_search_cars_use_case(),
+        car_presenter=get_car_presenter()
+    )
+
+
+# ====== MOTORCYCLE DEPENDENCIES ======
+
+def get_motorcycle_controller() -> MotorcycleController:
+    """Factory para MotorcycleController."""
+    try:
+        logger.info("🔍 [DEPENDENCIES] Criando MotorcycleController...")
+        controller = MotorcycleController(
+            create_use_case=get_create_motorcycle_use_case(),
+            get_use_case=get_get_motorcycle_use_case(),
+            update_use_case=get_update_motorcycle_use_case(),
+            update_status_use_case=get_update_motorcycle_status_use_case(),
+            delete_use_case=get_delete_motorcycle_use_case(),
+            search_use_case=get_search_motorcycles_use_case(),
+            motorcycle_presenter=get_motorcycle_presenter()
+        )
+        logger.info("🔍 [DEPENDENCIES] MotorcycleController criado com sucesso")
+        return controller
+    except Exception as e:
+        logger.error(f"❌ [DEPENDENCIES] Erro ao criar MotorcycleController: {str(e)}", exc_info=True)
+        raise e
+
+
+# ====== USER DEPENDENCIES ======
+
+def get_user_controller() -> UserController:
+    """Factory para UserController."""
+    return UserController(
+        create_use_case=get_create_user_use_case(),
+        get_use_case=get_get_user_use_case(),
+        authenticate_use_case=get_authenticate_user_use_case(),
+        get_current_user_use_case=get_get_current_user_use_case(),
+        user_presenter=get_user_presenter()
+    )
+
+
+# ====== BLACKLISTED TOKEN DEPENDENCIES ======
+
+def get_blacklisted_token_controller() -> BlacklistedTokenController:
+    """Factory para BlacklistedTokenController."""
+    return BlacklistedTokenController()
+
+
+# ====== VEHICLE IMAGE DEPENDENCIES ======
+
+def get_vehicle_image_presenter() -> VehicleImagePresenter:
+    """Factory para VehicleImagePresenter."""
+    return VehicleImagePresenter(base_url="http://localhost:8180")
+
+def get_vehicle_image_controller() -> VehicleImageController:
+    """Factory para VehicleImageController."""
+    return VehicleImageController(
+        create_vehicle_image_use_case=get_create_vehicle_image_use_case(),
+        get_vehicle_image_use_case=get_get_vehicle_image_use_case(),
+        get_vehicle_images_use_case=get_get_vehicle_images_use_case(),
+        get_primary_vehicle_image_use_case=get_get_primary_vehicle_image_use_case(),
+        update_vehicle_image_use_case=get_update_vehicle_image_use_case(),
+        delete_vehicle_image_use_case=get_delete_vehicle_image_use_case(),
+        set_primary_vehicle_image_use_case=get_set_primary_vehicle_image_use_case(),
+        presenter=get_vehicle_image_presenter()
+    )
