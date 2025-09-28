@@ -51,12 +51,12 @@ async def lifespan(app: FastAPI):
     thumbnail_dir = upload_dir / "thumbnails"
     thumbnail_dir.mkdir(parents=True, exist_ok=True)
     
-    # Criar tabelas do banco de dados
-    try:
-        create_tables()
-    except Exception as e:
-        logger.error(f"Erro ao criar tabelas: {str(e)}")
-        raise e
+    # Criar tabelas do banco de dados - DESABILITADO para Kubernetes (usa migrações SQL)
+    # try:
+    #     create_tables()
+    # except Exception as e:
+    #     logger.error(f"Erro ao criar tabelas: {str(e)}")
+    #     raise e
     
     # Inicializar sistema automaticamente (criar usuário admin, etc.)
     try:
