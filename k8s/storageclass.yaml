@@ -1,0 +1,11 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: car-sales-storage
+provisioner: k8s.io/minikube-hostpath
+reclaimPolicy: Delete
+volumeBindingMode: Immediate
+
+# NOTE: The provisioner `k8s.io/minikube-hostpath` is available on minikube by default.
+# If your cluster uses a different provisioner, change `provisioner` to the appropriate value
+# or omit `storageClassName` on PVCs to use the cluster default StorageClass.

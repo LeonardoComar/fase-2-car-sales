@@ -1,0 +1,86 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: carsales-config
+  namespace: car-sales
+data:
+  FASTAPI_PORT: "8080"
+  ACCESS_TOKEN_EXPIRE_MINUTES: "30"
+  ALGORITHM: "HS256"
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: carsales
+  namespace: car-sales
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: carsales
+  template:
+    metadata:
+      labels:
+        app: carsales
+    spec:
+      containers:
+        - name: carsales
+          image: leocomar/carsales:latest
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: carsales-config
+          env:
+            - name: DB_HOST
+              value: mysql
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_NAME
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-credentials
+                  key: mysql-database
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-credentials
+                  key: mysql-user
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-credentials
+                  key: mysql-password
+            - name: SECRET_KEY
+              value: "change_this_secret"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          volumeMounts:
+            - name: static-storage
+              mountPath: /app/static
+      volumes:
+        - name: static-storage
+          persistentVolumeClaim:
+            claimName: static-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: carsales
+  namespace: car-sales
+spec:
+  type: NodePort
+  selector:
+    app: carsales
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+      nodePort: 30180
