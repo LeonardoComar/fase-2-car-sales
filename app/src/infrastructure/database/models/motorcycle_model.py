@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, Float, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Boolean, Float, DateTime, ForeignKey, BIGINT
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from src.infrastructure.database.connection import Base
@@ -14,7 +14,7 @@ class MotorcycleModel(Base):
     
     __tablename__ = "motorcycles"
     
-    vehicle_id = Column(Integer, ForeignKey('motor_vehicles.id'), primary_key=True)
+    vehicle_id = Column(BIGINT, ForeignKey('motor_vehicles.id'), primary_key=True)
     starter = Column(String(50))
     fuel_system = Column(String(50))
     engine_displacement = Column(Integer)
