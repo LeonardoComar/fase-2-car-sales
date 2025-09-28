@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Text
+from sqlalchemy import Column, Integer, String, Float, DateTime, Text, BIGINT
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from datetime import datetime
@@ -15,7 +15,7 @@ class MotorVehicleModel(Base):
     
     __tablename__ = "motor_vehicles"
     
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(BIGINT, primary_key=True, autoincrement=True)
     model = Column(String(100), nullable=False, index=True)
     year = Column(String(50), nullable=False, index=True)
     price = Column(Float, nullable=False, index=True)
