@@ -68,7 +68,7 @@ kubectl get pods -n car-sales -w
 
 6. **Verificar logs da aplicação**:
 ```powershell
-kubectl -n car-sales logs deployment/carsales --tail=10
+kubectl -n car-sales logs deployment/carsales
 ```
 
 7. **Obter URL da aplicação**:
