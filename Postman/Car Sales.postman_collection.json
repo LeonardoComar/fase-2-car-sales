@@ -51,7 +51,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n  \"model\": \"Honda Civic 3\",\r\n  \"year\": \"2020\",\r\n  \"mileage\": 25000,\r\n  \"fuel_type\": \"Flex\",\r\n  \"color\": \"Branco\",\r\n  \"city\": \"São Paulo\",\r\n  \"additional_description\": \"Carro em excelente estado\",\r\n  \"bodywork\": \"Sedan\",\r\n  \"transmission\": \"Automático\",\r\n  \"price\": 85000\r\n}",
+							"raw": "{\r\n  \"model\": \"Honda Civic 3\",\r\n  \"year\": \"2020\",\r\n  \"mileage\": 25000,\r\n  \"fuel_type\": \"Flex\",\r\n  \"color\": \"Branco\",\r\n  \"city\": \"São Paulo\",\r\n  \"additional_description\": \"Carro em excelente estado\",\r\n  \"bodywork\": \"Sedan\",\r\n  \"transmission\": \"Automatica\",\r\n  \"price\": 85000\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -59,15 +59,14 @@
 							}
 						},
 						"url": {
-							"raw": "{{baseUrl}}:{{port}}/api/cars/",
+							"raw": "{{baseUrl}}:{{port}}/api/cars",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"port": "{{port}}",
 							"path": [
 								"api",
-								"cars",
-								""
+								"cars"
 							]
 						}
 					},
@@ -86,7 +85,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n  \"model\": \"Honda Civic\",\r\n  \"year\": \"2020\",\r\n  \"mileage\": 30000,\r\n  \"fuel_type\": \"Flex\",\r\n  \"color\": \"Prata\",\r\n  \"city\": \"São Paulo\",\r\n  \"additional_description\": \"Carro em excelente estado\",\r\n  \"bodywork\": \"Sedan\",\r\n  \"transmission\": \"Automático\",\r\n  \"price\": 10000\r\n}",
+							"raw": "{\r\n  \"model\": \"Honda Civic\",\r\n  \"year\": \"2020\",\r\n  \"mileage\": 30000,\r\n  \"fuel_type\": \"Flex\",\r\n  \"color\": \"Prata\",\r\n  \"city\": \"São Paulo\",\r\n  \"additional_description\": \"Carro em excelente estado\",\r\n  \"bodywork\": \"Sedan\",\r\n  \"transmission\": \"Automatica\",\r\n  \"price\": 10000\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -263,15 +262,14 @@
 							}
 						},
 						"url": {
-							"raw": "{{baseUrl}}:{{port}}/api/motorcycles/",
+							"raw": "{{baseUrl}}:{{port}}/api/motorcycles",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"port": "{{port}}",
 							"path": [
 								"api",
-								"motorcycles",
-								""
+								"motorcycles"
 							]
 						}
 					},
@@ -438,15 +436,14 @@
 							}
 						},
 						"url": {
-							"raw": "{{baseUrl}}:{{port}}/api/clients/",
+							"raw": "{{baseUrl}}:{{port}}/api/clients",
 							"host": [
 								"{{baseUrl}}"
 							],
 							"port": "{{port}}",
 							"path": [
 								"api",
-								"clients",
-								""
+								"clients"
 							]
 						}
 					},
@@ -465,7 +462,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n  \"name\": \"João Silva\",\r\n  \"email\": \"joao.silva@email.com\",\r\n  \"phone\": \"(11) 99999-9999\",\r\n  \"cpf\": \"510.797.250-08\",\r\n  \"street\": \"Rua das Flores, 456\",\r\n  \"city\": \"São Paulo\",\r\n  \"state\": \"SP\",\r\n  \"zip_code\": \"01234-567\",\r\n  \"country\": \"Brasil\"\r\n}",
+							"raw": "{\r\n  \"name\": \"João Silva\",\r\n  \"email\": \"joao.silva@email.com\",\r\n  \"phone\": \"(11) 99999-9988\",\r\n  \"cpf\": \"510.797.250-08\",\r\n  \"street\": \"Rua das Flores, 456\",\r\n  \"city\": \"São Paulo\",\r\n  \"state\": \"SP\",\r\n  \"zip_code\": \"01234-567\",\r\n  \"country\": \"Brasil\"\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -644,7 +641,7 @@
 						],
 						"body": {
 							"mode": "raw",
-							"raw": "{\r\n  \"name\": \"Maria Santos Oliveira\",\r\n  \"email\": \"maria.santos@empresa.com\",\r\n  \"phone\": \"(11) 98765-4321\",\r\n  \"cpf\": \"782.135.500-30\",\r\n  \"street\": \"Rua das Palmeiras, 123\",\r\n  \"city\": \"São Paulo\",\r\n  \"state\": \"SP\",\r\n  \"zip_code\": \"01234-567\",\r\n  \"country\": \"Brasil\"\r\n}",
+							"raw": "{\r\n  \"name\": \"Maria Santos Oliveira\",\r\n  \"email\": \"maria.santos.oliveira@empresa.com\",\r\n  \"phone\": \"(11) 98765-4321\",\r\n  \"cpf\": \"782.135.500-30\",\r\n  \"street\": \"Rua das Palmeiras, 123\",\r\n  \"city\": \"São Paulo\",\r\n  \"state\": \"SP\",\r\n  \"zip_code\": \"01234-567\",\r\n  \"country\": \"Brasil\"\r\n}",
 							"options": {
 								"raw": {
 									"language": "json"
@@ -789,7 +786,7 @@
 							}
 						],
 						"url": {
-							"raw": "{{baseUrl}}:{{port}}/api/employees?name=santos",
+							"raw": "{{baseUrl}}:{{port}}/api/employees?name=maria",
 							"host": [
 								"{{baseUrl}}"
 							],
@@ -801,7 +798,7 @@
 							"query": [
 								{
 									"key": "name",
-									"value": "santos"
+									"value": "maria"
 								}
 							]
 						}
@@ -1648,9 +1645,30 @@
 							"listen": "test",
 							"script": {
 								"exec": [
-									"// Armazenar o token recebido na resposta\r",
-									"let responseJson = pm.response.json();\r",
-									"pm.environment.set(\"access_token\", responseJson.access_token);"
+									"// Test script do Postman\r",
+									"try {\r",
+									"  let responseJson = pm.response.json();\r",
+									"  console.log(\"Resposta completa:\", responseJson);\r",
+									"\r",
+									"  // caminho correto para o token na sua resposta:\r",
+									"  let token = responseJson && responseJson.data && responseJson.data.access_token;\r",
+									"\r",
+									"  if (token) {\r",
+									"    pm.environment.set(\"access_token\", token);\r",
+									"    pm.test(\"access_token armazenado em environment\", function () {\r",
+									"      pm.expect(pm.environment.get(\"access_token\")).to.eql(token);\r",
+									"    });\r",
+									"    console.log(\"access_token salvo em environment:\", pm.environment.get(\"access_token\"));\r",
+									"  } else {\r",
+									"    pm.test(\"access_token presente na resposta\", function () {\r",
+									"      pm.expect.fail(\"access_token não encontrado em response.data.access_token\");\r",
+									"    });\r",
+									"  }\r",
+									"} catch (e) {\r",
+									"  console.log(\"Erro ao parsear resposta:\", e);\r",
+									"  pm.test(\"Resposta JSON válida\", function () { pm.expect.fail(\"Resposta não é um JSON válido\"); });\r",
+									"}\r",
+									""
 								],
 								"type": "text/javascript",
 								"packages": {}
