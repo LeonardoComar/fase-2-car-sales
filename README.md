@@ -153,6 +153,3 @@ docker volume rm fase-2-car-sales_db_carsales_data
 
 Secrets necessários no GitHub:
 - `DOCKERHUB_TOKEN` — token do Docker Hub (é recomendado criar um Access Token em Docker Hub > Settings > Security)
-- `KUBE_CONFIG` — (opcional) kubeconfig codificado em base64 se quiser que o workflow aplique em um cluster remoto
-
-Se for usar `minikube` localmente, prefira `minikube image load leocomar/carsales:latest` e depois `kubectl apply -k k8s/`.
